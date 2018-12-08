@@ -1,0 +1,46 @@
+#vbox {
+	  -fx-background-color:derive(white, -1%);
+	  -fx-font-family:'Comic Sans MS';	  
+}
+
+#infogrid {
+	-fx-hgap: 5;
+	-fx-vgap: 5;
+}
+
+.tagText {
+	-fx-fill:darkcyan;
+	-fx-halignment: right ;
+	
+}
+#pathText {
+	-fx-text-overrun:leading-ellipsis;
+}
+.choicebox2 .title {
+	-fx-font-size: 0.8em;
+	-fx-font-family: 'sans-serif';
+	-fx-fill: darkblue;
+}
+.choicebox2 .hyperlink {
+	-fx-font-family: 'sans-serif';
+	-fx-padding: 0 0 0 10;
+	-fx-underline: true;
+}
+#bottom {
+	-fx-background-color: white;
+}
+.tab-header-background  {
+	-fx-background-color: derive(white, -2%);
+}
+.smalltext {
+	-fx-font-size: 0.8em;
+	-fx-font-family: 'sans-serif';
+}
+
+#sqlFilterMenu {
+	-fx-font-family:'Consolas';
+}
+.filter_selected {
+	-fx-background-color:lightcyan;
+	
+}

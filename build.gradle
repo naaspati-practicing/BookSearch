@@ -1,0 +1,69 @@
+apply plugin: 'java'
+apply plugin: 'application'
+
+repositories {
+    jcenter()
+}
+
+dependencies {
+  compile 'org.xerial:sqlite-jdbc:3.7.2'
+  compile files('myutils.jar') 
+}
+
+mainClassName = 'Main'
+
+version = '1.02'
+sourceCompatibility = JavaVersion.VERSION_1_8 
+targetCompatibility = JavaVersion.VERSION_1_8
+
+ext.appdir = file(/D:\Core Files\Adobe\ProgrammingComputer Books\non-book materials\Booklist app\booksearch\app/)
+
+
+task install(type: Copy, dependsOn:installDist) {
+  def libdir = file(new File(installDist.destinationDir, 'lib')) 
+  from libdir
+  into appdir
+  
+  doLast {
+     new File(appdir, 'run.cmd').text = """
+  @echo off
+  setlocal
+  
+  ${versionText()}
+  
+  java %JAVA_OPTS% -cp \"%~dp0${String.join(';%~dp0', libdir.list())}\" ${mainClassName} %*
+  
+  """.stripIndent()
+  } 
+}
+
+def versionText() {
+  if(!version && version == 'unspecified') return '';
+  return """
+  SET APP_VERSION=${version}
+  if [%1]==[-v] (
+    echo version: %APP_VERSION%
+    goto:eof
+  )
+  if [%1]==[--version] (
+    echo version: %APP_VERSION%
+    goto:eof
+  )
+  """;    
+}
+
+run {
+  environment['BOOKLIST_ROOT'] = /D:\Core Files\Adobe\ProgrammingComputer Books/
+  workingDir appdir.parent  
+}
+
+
+jar {
+  exclude 'fxml/*.fxgraph'
+}
+run {
+  workingDir appdir.parent
+}
+
+
+defaultTasks 'install'

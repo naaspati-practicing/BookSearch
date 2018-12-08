@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <base href="${BASE}$"> 
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>${PAGE_TITLE}$</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<style>
+    li {
+        list-style-type: none;
+        padding-bottom: 1em;
+        border-width: 0 0 0.1px 0;
+        border-color: black;
+        border-style: solid;
+    }
+      p {
+          margin: 0.2em;
+          font-family: 'Courier New', Courier, monospace;
+      }
+      p.title {
+          font-size: 1.2em;
+      }
+      p.path {
+          font-size: 0.8em;
+          text-decoration: underline blue;
+          color: blue;
+      }
+      p.others {
+          font-size: 0.7em;
+      }
+</style>
+
+<body>
+    <section>
+        <ul>
+            ${LIST}$
+            <!--  per-element
+              <li>
+                <p class="title">${TITLE}$</p>
+                <p class="path"><a href="${PATH}$">${PATH}$</a></p>  
+                <p class="others">id: ${ID}$ | pages: ${PAGES}$ | year: ${YEAR}$</p>
+              </li>
+             -->   
+        </ul>
+    </section>
+    
+</body>
+</html>
