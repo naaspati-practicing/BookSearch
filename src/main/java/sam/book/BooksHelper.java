@@ -13,6 +13,7 @@ import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;
@@ -54,6 +55,7 @@ public class BooksHelper implements AutoCloseable {
 	private final Path last_log_number = Paths.get("last_"+LOG_NUMBER+".int");
 	private Map<Integer, List<String>> resources;
 	private boolean resources_modified;
+	private boolean db_modified;
 	
 	private final Path cache_dir = Paths.get("full.books.cache");
 	
@@ -138,7 +140,6 @@ public class BooksHelper implements AutoCloseable {
 	private void save() throws IOException {
 		ObjectWriter.writeList(book_cache, books, SmallBook::write);
 		IntSerializer.write(paths.length, paths_cache_size);
-		LongSerializer.write(BooksDB.DB_PATH.toFile().lastModified(), lastmodifiedtime);
 		List<PathsImpl> paths2 = Arrays.stream(paths).filter(Objects::nonNull).collect(Collectors.toList());
 		ObjectWriter.writeList(paths_cache, paths2, (p, dos) -> {
 			dos.writeInt(p.getPathId());
@@ -306,14 +307,20 @@ public class BooksHelper implements AutoCloseable {
 
 	@Override
 	public void close() throws Exception {
-		db().close();
+		if(_db != null)
+			_db.close();
+		
 		if(modified)
 			save();
+		
 		if(resources_modified) {
 			resources.replaceAll((id, value) -> Checker.isEmpty(value) ? null : value);
 			ObjectWriter.write(sql_resources, resources);
 			System.out.println("saved: "+sql_resources);
 		}
+		
+		if(modified || db_modified)
+			LongSerializer.write(BooksDB.DB_PATH.toFile().lastModified(), lastmodifiedtime);
 	}
 	public void changeStatus(List<SmallBook> books, BookStatus status) {
 		try {
@@ -356,6 +363,9 @@ public class BooksHelper implements AutoCloseable {
 		return Arrays.stream(paths).filter(Objects::nonNull);
 	}
 	public List<String> getResources(Book b) throws SQLException {
+		if(b == null)
+			return Collections.emptyList();
+		
 		List<String> list = resources.get(b.book.id);
 		if(list != null)
 			return list;
@@ -368,5 +378,18 @@ public class BooksHelper implements AutoCloseable {
 		resources_modified = true;
 		
 		return list;
+	}
+	public void addResource(Book currentBook, List<String> result) throws SQLException {
+		try(PreparedStatement ps = db().prepareStatement("INSERT INTO Resources VALUES(?,?)")) {
+			for (String s : result) {
+				ps.setInt(1, currentBook.book.id);
+				ps.setString(2, s);
+				ps.addBatch();
+			}
+			
+			ps.executeBatch();
+			db().commit();
+			db_modified = true;
+		}
 	}
 }

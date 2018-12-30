@@ -137,10 +137,7 @@ dynamic component Main  {
 							Text  {text : "Path : ",       static columnIndex : 0, static rowIndex : 7, static columnSpan : 1, static rowSpan : 1, styleClass : ["tagText"]}, 
 							Hyperlink id pathText {        static columnIndex : 0, static rowIndex : 8, static columnSpan : const GridPane#REMAINING, static rowSpan : 1, onAction : controllermethod openPathAction, static fillWidth : true, padding : Insets{left : 10}}
 						},
-						HBox {
-							
-						},
-						Text id resourcesTag {text : "Resources", styleClass : ["tagText"]},
+						HBox {spacing : 10, Text {text : "Resources", styleClass : ["tagText"]}, Label {style : "-fx-text-fill:blue;-fx-underline:true;",  text : "Add", onMouseClicked : controllermethod addResourceAction}},
 						VBox id resourceBox{padding : Insets{left : 15}},
 						Text {text : "Description", styleClass : ["tagText"]},
 						WebView id descriptionText

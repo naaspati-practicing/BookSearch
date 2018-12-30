@@ -2,8 +2,11 @@ package sam.book.search;
 import static sam.myutils.Checker.isEmpty;
 import static sam.string.StringUtils.containsAny;
 
+import static sam.book.search.ResourceHelper.*;
 import java.io.File;
 import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.SQLException;
@@ -16,6 +19,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -23,7 +27,9 @@ import javafx.beans.binding.Bindings;
 import javafx.event.ActionEvent;
 import javafx.event.Event;
 import javafx.fxml.FXML;
+import javafx.geometry.Insets;
 import javafx.scene.Node;
+import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ChoiceDialog;
 import javafx.scene.control.Hyperlink;
@@ -32,19 +38,24 @@ import javafx.scene.control.SplitPane;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Text;
 import javafx.scene.web.WebView;
+import javafx.stage.FileChooser;
+import javafx.stage.Modality;
 import javafx.stage.Stage;
+import javafx.stage.StageStyle;
 import sam.book.Book;
 import sam.book.BooksHelper;
 import sam.book.SmallBook;
 import sam.books.BookStatus;
 import sam.books.BooksDB;
 import sam.collection.Iterables;
+import sam.console.ANSI;
 import sam.fx.alert.FxAlert;
 import sam.fx.clipboard.FxClipboard;
 import sam.fx.helpers.FxFxml;
@@ -52,6 +63,7 @@ import sam.fx.popup.FxPopupShop;
 import sam.io.fileutils.FileOpener;
 import sam.myutils.Checker;
 import sam.myutils.MyUtilsPath;
+import sam.reference.WeakAndLazy;
 
 public class App extends Application {
 	// bookId  -> book
@@ -87,8 +99,7 @@ public class App extends Application {
 	@FXML private ChoiceBox2<Sorter> sortChoice;
 	@FXML private SplitPane splitpane;
 	@FXML private VBox resourceBox;
-	@FXML private Text resourcesTag;
-	
+
 	@FXML private SqlFilterMenu sqlFilterMenu ;
 
 	private Comparator<SmallBook> currentComparator = Sorter.YEAR.sorter();
@@ -118,12 +129,14 @@ public class App extends Application {
 
 		countText.textProperty().bind(Bindings.size(allTab.getListView().getItems()).asString());
 		resourceBox.visibleProperty().bind(Bindings.isNotEmpty(resourceBox.getChildren()));
-		resourcesTag.visibleProperty().bind(resourceBox.visibleProperty());
 
 		Platform.runLater(() -> splitpane.setDividerPositions(0.4, 0.6));
 		prepareChoiceBoxes();
-		
-		searchField.textProperty().addListener((p, o, n) -> search0(n));
+
+		searchField.textProperty().addListener((p, o, n) -> {
+			currentTab.getListView().getSelectionModel().clearSelection();
+			search0(n);
+		});
 		stage.show();
 
 		booksHelper = new BooksHelper();
@@ -133,17 +146,17 @@ public class App extends Application {
 			t.setSorter(currentComparator);
 			t.setBooksHelper(booksHelper);
 		});
-		
+
 		tabpane.getSelectionModel().selectedItemProperty().addListener((p, o, n) -> {
 			currentTab = (SmallBookTab)n;
 			countText.textProperty().bind(Bindings.size(currentTab.getListView().getItems()).asString());
 			filters.setAllData(currentTab.getAllData());
 		});
-		
+
 		dirFilter.init(booksHelper, filters);
 		sqlFilterMenu.init(booksHelper, filters);
 		stage.getScene().getStylesheets().add("css/style.css");
-		
+
 		Platform.runLater(() -> {
 			currentTab = (SmallBookTab) tabpane.getSelectionModel().getSelectedItem();
 			filters.setAllData(currentTab.getAllData());
@@ -163,7 +176,7 @@ public class App extends Application {
 		statusChoice.init(Status2.values());
 		statusChoice.selectedProperty()
 		.addListener((p, o, n) -> filters.setChoiceFilter(n));
-		
+
 		sortChoice.init(Sorter.values());
 		sortChoice.selectedProperty().addListener((p, o, n) -> {
 			if(o == n)
@@ -185,7 +198,7 @@ public class App extends Application {
 			getHostServices().showDocument((String)node.getUserData());
 			return;
 		}
-		
+
 		Path p = (Path) node.getUserData();
 		if(p == null || Files.notExists(p))
 			FxAlert.showErrorDialog(p, "File not found", null);
@@ -253,8 +266,117 @@ public class App extends Application {
 			statusChoice.close();
 			sortChoice.close();
 		}
+	}
+	
+	private void addResourceLinks(List<String> resource) {
+		resource.forEach(p -> resourceBox.getChildren().add(hl(p.charAt(0) == '\\' ? RESOURCE_DIR.resolve(p.substring(1)) : p, null)));
+	}
+	
+	WeakAndLazy<Stage> resourceChoice = new WeakAndLazy<>(this::resourceChoiceStage);
+
+	private Stage resourceChoiceStage() {
+		Stage s = new Stage(StageStyle.UTILITY);
+		s.initOwner(stage);
+		s.initModality(Modality.APPLICATION_MODAL);
+		s.setTitle("resource type");
+
+		Button url = new Button("URL");
+		url.setOnAction(e -> newUrlResource());
+		Button file = new Button("FILE");
+		file.setOnAction(e -> newFileResource());
+
+		HBox box = new HBox(10, url, file);
+		box.setPadding(new Insets(10, 20, 10, 20));
+		s.setScene(new Scene(box));
+		s.sizeToScene();
 		
-		
+		return s;
+	}
+
+	private File lastFileParent;
+
+	private void newFileResource() {
+		FileChooser fc = new FileChooser();
+		if(lastFileParent != null)
+			fc.setInitialDirectory(lastFileParent);
+		fc.setTitle("select resource");
+
+		List<File> files = fc.showOpenMultipleDialog(stage);
+
+		if(Checker.isEmpty(files))
+			FxPopupShop.showHidePopup("cancelled", 1500);
+		else {
+			List<Path> paths = Optional.of(resourceBox.getChildren())
+					.filter(e -> !e.isEmpty())
+					.map(list -> list.stream().map(Node::getUserData).filter(e -> e instanceof Path).map(e -> (Path)e).map(p -> p.toAbsolutePath().normalize()).collect(Collectors.toList()))
+					.orElse(Collections.emptyList());
+			
+			List<String> result = files.stream()
+					.map(f -> f.toPath().toAbsolutePath().normalize())
+					.filter(f -> {
+						if(paths.contains(f)) {
+							System.out.println("already added: "+f);
+							return false;
+						}
+						return true;
+					})
+					.map(f -> f.startsWith(RESOURCE_DIR) ? "\\"+f.subpath(RESOURCE_DIR.getNameCount(), f.getNameCount()) : f.toString())
+					.collect(Collectors.toList());
+			
+			if(result.isEmpty()) {
+				System.out.println(ANSI.yellow("already addded"));
+				return ;
+			}
+
+			try {
+				booksHelper.addResource(currentBook, result);
+				addResourceLinks(result);
+				result.forEach(s -> System.out.println("added resource: "+s));
+			} catch (SQLException e2) {
+				FxAlert.showErrorDialog(paths.stream().map(Path::toString).collect(Collectors.joining("\n")), "failed to add resource", e2);
+			}
+		}
+	}
+	
+	private void newUrlResource() {
+		TextInputDialog dialog = new TextInputDialog();
+		dialog.initOwner(stage);
+		dialog.setTitle("add resources");
+		dialog.setHeaderText("Add Resources");
+
+		dialog.showAndWait().ifPresent(s -> {
+			if(Checker.isEmptyTrimmed(s))
+				FxPopupShop.showHidePopup("bad input", 1500);
+			else {
+				if(!s.startsWith("http")) {
+					System.out.println("missing protocol in url: "+s);
+					FxPopupShop.showHidePopup("bad value", 1500);
+					return;
+				}
+				try {
+					new URL(s);
+				} catch (MalformedURLException e) {
+					FxAlert.showErrorDialog(s, "bad url", e);
+					return;
+				}
+				
+				if(resourceBox.getChildren().isEmpty() || resourceBox.getChildren().stream().map(Node::getUserData).noneMatch(n -> s.equalsIgnoreCase(n.toString()))) {
+					try {
+						booksHelper.addResource(currentBook, Collections.singletonList(s));
+					} catch (SQLException e) {
+						FxAlert.showErrorDialog(s, "failed to add to DB", e);
+						return;
+					}
+					resourceBox.getChildren().add(hl(s, null));
+				} else 
+					FxPopupShop.showHidePopup("already exists", 1500);
+			}
+		});
+	}
+	
+	@FXML
+	private void addResourceAction(Event e) {
+		resourceChoice.get().showAndWait();
 	}
 	@FXML
 	private void copyCombinedAction(ActionEvent e) {
@@ -283,6 +405,8 @@ public class App extends Application {
 		vbox.setVisible(n != null);
 		if(n == null) return;
 
+		System.out.println("change view: "+n.id);
+
 		currentBook = booksHelper.book(n);
 		Book b = currentBook;
 		Path fullPath = booksHelper.getFullPath(b.book);
@@ -302,11 +426,10 @@ public class App extends Application {
 		yearText.setText(String.valueOf(b.book.year));
 		descriptionText.getEngine().loadContent(b.description);
 		statusText.setText(b.book.getStatus() == null ? null : b.book.getStatus().toString());
-
-		List<Node> cl = resourceBox.getChildren();
+		
 		descriptionText.getEngine().setUserStyleSheetLocation(ClassLoader.getSystemResource("css/description.css").toString());
 
-		List<String> list = ResourceHelper.getResources(b);
+		List<String> list = getResources(b);
 		List<String> list2;
 		try {
 			list2 = booksHelper.getResources(b);
@@ -314,29 +437,31 @@ public class App extends Application {
 			e.printStackTrace();
 			list2 = Collections.emptyList();
 		}
+
+		List<Node> cl = resourceBox.getChildren();
 		
 		if(Checker.isEmpty(list) && Checker.isEmpty(list2))
 			cl.clear();
 		else {
 			LinkedList<Node> nodes = new LinkedList<>(cl);
 			cl.clear();
-			list.forEach(c -> cl.add(hl(c, nodes.poll())));
-			list2.forEach(c -> cl.add(hl(c, nodes.poll())));
+			list.forEach(c -> cl.add(hl(RESOURCE_DIR.resolve(c), nodes.poll())));
+			addResourceLinks(list2);
 		}
 	}
-	private Node hl(String c, Node node) {
+	private Node hl(Object c, Node node) {
 		Hyperlink h = node != null ? (Hyperlink)node : new Hyperlink();
-		
-		if(c.startsWith("http")) {
-			h.setText(c);
+
+		if(c.getClass() == String.class) {
+			h.setText((String)c);
 			h.setUserData(c);
 		} else {
-			Path  p = ResourceHelper.RESOURCE_DIR.resolve(c);
+			Path  p = (Path)c;
 			h.setText(p.getFileName().toString());
-			h.setTooltip(new Tooltip(c));
+			h.setTooltip(new Tooltip(c.toString()));
 			h.setUserData(p);
 		}
-		
+
 		if(node == null) 
 			h.setOnAction(e -> open(false, h));
 		return h;
