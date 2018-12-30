@@ -49,9 +49,11 @@ public class BooksHelper implements AutoCloseable {
 
 	private final Path book_cache = Paths.get("books-cache.dat");
 	private final Path paths_cache = Paths.get("paths-cache.dat");
+	private final Path sql_resources = Paths.get("sql-resources.dat");
 	private final Path paths_cache_size = Paths.get("paths-cache-size.dat");
 	private final Path last_log_number = Paths.get("last_"+LOG_NUMBER+".int");
-
+	private Map<Integer, List<String>> resources;
+	private boolean resources_modified;
 	
 	private final Path cache_dir = Paths.get("full.books.cache");
 	
@@ -95,6 +97,8 @@ public class BooksHelper implements AutoCloseable {
 	private BooksDB _db;
 	private BooksDB db() throws SQLException {
 		if(_db != null) return _db;
+		StackTraceElement[] e = Thread.currentThread().getStackTrace();
+		System.out.println("DB.init: "+e[2]+", "+e[3]);
 		return _db = new BooksDB();
 	}
 	public Path getExpectedSubpath(SmallBook book) {
@@ -124,6 +128,8 @@ public class BooksHelper implements AutoCloseable {
 				this.paths[impl.getPathId()] = impl;
 			});
 			update();
+			this.resources = Files.notExists(sql_resources) ? new HashMap<>() : ObjectReader.read(sql_resources);
+			this.resources.replaceAll((id, value) -> value == null ? Collections.emptyList() : value);
 		} catch (IOException e) {
 			e.printStackTrace();
 			loadAll();
@@ -153,6 +159,8 @@ public class BooksHelper implements AutoCloseable {
 			LOGGER.fine(() -> "UPDATE SKIPPED: LongSerializer.read(lastmodifiedtime.toPath()) == dbfile.lastModified()");
 			return;
 		}
+		
+		Files.deleteIfExists(sql_resources);
 
 		List<ChangeLog> ui = ChangeLog.getAllAfter(IntSerializer.read(last_log_number), db(), false);
 		System.out.println("CACHE loaded");
@@ -301,6 +309,11 @@ public class BooksHelper implements AutoCloseable {
 		db().close();
 		if(modified)
 			save();
+		if(resources_modified) {
+			resources.replaceAll((id, value) -> Checker.isEmpty(value) ? null : value);
+			ObjectWriter.write(sql_resources, resources);
+			System.out.println("saved: "+sql_resources);
+		}
 	}
 	public void changeStatus(List<SmallBook> books, BookStatus status) {
 		try {
@@ -321,7 +334,6 @@ public class BooksHelper implements AutoCloseable {
 			sm.setStatus(status);
 		});
 	}
-
 	private static final String SQL_FILTER = "SELECT "+BOOK_ID+" FROM "+BOOK_TABLE_NAME+" WHERE "; 
 	public Predicate<SmallBook> sqlFilter(String sql) throws SQLException {
 		int[] array = sqlFilters.get(sql);
@@ -342,5 +354,19 @@ public class BooksHelper implements AutoCloseable {
 	}
 	public Stream<PathsImpl> paths() {
 		return Arrays.stream(paths).filter(Objects::nonNull);
-	} 
+	}
+	public List<String> getResources(Book b) throws SQLException {
+		List<String> list = resources.get(b.book.id);
+		if(list != null)
+			return list;
+		
+		list = db().collectToList("SELECT _data FROM Resources WHERE book_id = "+b.book.id, rs -> rs.getString(1));
+		System.out.println("loaded sq-resource("+list.size()+"): book_id: "+b.book.id);
+		list = list.isEmpty() ? Collections.emptyList() : list;
+		
+		resources.put(b.book.id, list);
+		resources_modified = true;
+		
+		return list;
+	}
 }

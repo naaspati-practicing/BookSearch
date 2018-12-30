@@ -6,8 +6,10 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -179,6 +181,11 @@ public class App extends Application {
 		open(true, (Node) e.getSource());
 	}
 	private void open(boolean open, Node node) {
+		if(node.getUserData().getClass() == String.class) {
+			getHostServices().showDocument((String)node.getUserData());
+			return;
+		}
+		
 		Path p = (Path) node.getUserData();
 		if(p == null || Files.notExists(p))
 			FxAlert.showErrorDialog(p, "File not found", null);
@@ -300,21 +307,36 @@ public class App extends Application {
 		descriptionText.getEngine().setUserStyleSheetLocation(ClassLoader.getSystemResource("css/description.css").toString());
 
 		List<String> list = ResourceHelper.getResources(b);
-		if(Checker.isEmpty(list))
+		List<String> list2;
+		try {
+			list2 = booksHelper.getResources(b);
+		} catch (SQLException e) {
+			e.printStackTrace();
+			list2 = Collections.emptyList();
+		}
+		
+		if(Checker.isEmpty(list) && Checker.isEmpty(list2))
 			cl.clear();
 		else {
 			LinkedList<Node> nodes = new LinkedList<>(cl);
 			cl.clear();
 			list.forEach(c -> cl.add(hl(c, nodes.poll())));
+			list2.forEach(c -> cl.add(hl(c, nodes.poll())));
 		}
 	}
 	private Node hl(String c, Node node) {
-		Path  p = ResourceHelper.RESOURCE_DIR.resolve(c);
 		Hyperlink h = node != null ? (Hyperlink)node : new Hyperlink();
-		h.setText(p.getFileName().toString());
-		h.setTooltip(new Tooltip(c));
-		h.setUserData(p);
-
+		
+		if(c.startsWith("http")) {
+			h.setText(c);
+			h.setUserData(c);
+		} else {
+			Path  p = ResourceHelper.RESOURCE_DIR.resolve(c);
+			h.setText(p.getFileName().toString());
+			h.setTooltip(new Tooltip(c));
+			h.setUserData(p);
+		}
+		
 		if(node == null) 
 			h.setOnAction(e -> open(false, h));
 		return h;
