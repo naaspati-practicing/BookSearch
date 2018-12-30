@@ -56,9 +56,9 @@ public class BooksHelper implements AutoCloseable {
 	private Map<Integer, List<String>> resources;
 	private boolean resources_modified;
 	private boolean db_modified;
-	
+
 	private final Path cache_dir = Paths.get("full.books.cache");
-	
+
 	private List<SmallBook> books;
 	private PathsImpl[] paths;
 	private final List<SmallBook> unmodif;
@@ -84,7 +84,7 @@ public class BooksHelper implements AutoCloseable {
 				LOGGER.fine(() -> "CACHE LOADED: id="+n.id+", name="+n.name);
 				return ObjectReader.read(p, dis -> new Book(dis, n));
 			}
-			
+
 			Book book = Book.getById(n, db()); 
 			ObjectWriter.write(p, book, Book::write);
 			LOGGER.fine(() -> "SAVED CACHE id:"+book.book.id+", to:"+p);
@@ -95,7 +95,7 @@ public class BooksHelper implements AutoCloseable {
 		}
 		return null;
 	}
-	
+
 	private BooksDB _db;
 	private BooksDB db() throws SQLException {
 		if(_db != null) return _db;
@@ -147,7 +147,7 @@ public class BooksHelper implements AutoCloseable {
 			dos.writeUTF(p.getMarker());
 		});
 	}
-	
+
 	private final Path lastmodifiedtime = Paths.get("db_last_modified.long");
 
 	private void update() throws SQLException, IOException {
@@ -160,18 +160,21 @@ public class BooksHelper implements AutoCloseable {
 			LOGGER.fine(() -> "UPDATE SKIPPED: LongSerializer.read(lastmodifiedtime.toPath()) == dbfile.lastModified()");
 			return;
 		}
-		
+
 		Files.deleteIfExists(sql_resources);
+		System.out.println("deleted: "+sql_resources);
 
 		List<ChangeLog> ui = ChangeLog.getAllAfter(IntSerializer.read(last_log_number), db(), false);
-		System.out.println("CACHE loaded");
-		if(ui.isEmpty()) return;
+		if(ui.isEmpty()) {
+			System.out.println("CACHE loaded");
+			return;
+		}
 
 		Map<String, List<ChangeLog>> map = ui.stream().collect(Collectors.groupingBy(t -> t.table_name));
 
 		IntSerializer.write(ui.stream().mapToInt(u -> u.log_number).max().getAsInt(), last_log_number);
 		modified = true;
-		
+
 		List<ChangeLog> list = map.get(PATH_TABLE_NAME);
 		if(Checker.isNotEmpty(list)) {
 			int max = list.stream().mapToInt(u -> u.id).max().getAsInt();
@@ -207,7 +210,7 @@ public class BooksHelper implements AutoCloseable {
 				SmallBook b = new SmallBook(rs);
 				books.put(b.id, b);
 			});
-			
+
 			if(!books.isEmpty()) {
 				this.books.replaceAll(sm -> {
 					SmallBook s = books.remove(sm.id);
@@ -288,7 +291,7 @@ public class BooksHelper implements AutoCloseable {
 	private void loadAll() throws SQLException, IOException {
 		books = db().collectToList(SELECT_ALL_SMALL_BOOKS, SmallBook::new);
 		paths = new PathsImpl[db().getSequnceValue(PATH_TABLE_NAME)+1];
-		
+
 		db().iterate(SELECT_ALL_PATHS, rs -> {
 			PathsImpl impl = new PathsImpl(rs);
 			paths[impl.getPathId()] = impl;
@@ -309,16 +312,16 @@ public class BooksHelper implements AutoCloseable {
 	public void close() throws Exception {
 		if(_db != null)
 			_db.close();
-		
+
 		if(modified)
 			save();
-		
+
 		if(resources_modified) {
 			resources.replaceAll((id, value) -> Checker.isEmpty(value) ? null : value);
 			ObjectWriter.write(sql_resources, resources);
 			System.out.println("saved: "+sql_resources);
 		}
-		
+
 		if(modified || db_modified)
 			LongSerializer.write(BooksDB.DB_PATH.toFile().lastModified(), lastmodifiedtime);
 	}
@@ -365,18 +368,18 @@ public class BooksHelper implements AutoCloseable {
 	public List<String> getResources(Book b) throws SQLException {
 		if(b == null)
 			return Collections.emptyList();
-		
+
 		List<String> list = resources.get(b.book.id);
 		if(list != null)
 			return list;
-		
+
 		list = db().collectToList("SELECT _data FROM Resources WHERE book_id = "+b.book.id, rs -> rs.getString(1));
 		System.out.println("loaded sq-resource("+list.size()+"): book_id: "+b.book.id);
 		list = list.isEmpty() ? Collections.emptyList() : list;
-		
+
 		resources.put(b.book.id, list);
 		resources_modified = true;
-		
+
 		return list;
 	}
 	public void addResource(Book currentBook, List<String> result) throws SQLException {
@@ -386,7 +389,7 @@ public class BooksHelper implements AutoCloseable {
 				ps.setString(2, s);
 				ps.addBatch();
 			}
-			
+
 			ps.executeBatch();
 			db().commit();
 			db_modified = true;
