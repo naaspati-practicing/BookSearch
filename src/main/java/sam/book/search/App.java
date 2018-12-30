@@ -289,6 +289,7 @@ public class App extends Application {
 		box.setPadding(new Insets(10, 20, 10, 20));
 		s.setScene(new Scene(box));
 		s.sizeToScene();
+		s.setResizable(false);
 		
 		return s;
 	}
