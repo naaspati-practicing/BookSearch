@@ -91,4 +91,7 @@ public class Filters {
 	public Collection<SmallBook> applyFilter(Collection<SmallBook> list) {
 		return search.applyFilter(list);
 	}
+	public boolean applyFilter(SmallBook s) {
+		return search.getFilter().test(s);
+	}
 }

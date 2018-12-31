@@ -8,12 +8,17 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.function.Consumer;
 
+import javafx.beans.binding.Bindings;
+import javafx.beans.binding.IntegerBinding;
+import javafx.beans.value.ChangeListener;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.ListView;
+import javafx.scene.control.MultipleSelectionModel;
 import javafx.scene.control.SelectionMode;
 import javafx.scene.control.Tab;
 import javafx.scene.input.ContextMenuEvent;
@@ -28,40 +33,27 @@ import sam.fx.alert.FxAlert;
 import sam.fx.popup.FxPopupShop;
 import sam.reference.WeakAndLazy;
 
-public class SmallBookTab extends Tab {
-	private final ListView<SmallBook> list = new ListView<>();
-	private List<SmallBook> allData = new ArrayList<>();
-	private TabType type;
-	private BooksHelper booksHelper;
+public abstract class SmallBookTab extends Tab {
+	protected final ListView<SmallBook> list = new ListView<>();
+	protected final List<SmallBook> allData = new ArrayList<>();
+	protected BooksHelper booksHelper;
 
 	public SmallBookTab() {
 		setClosable(false);
 		setContent(list);
-
-		list.getSelectionModel().selectedItemProperty().addListener((p, o, n) -> App.getInstance().reset(n, type));
+		
 		list.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
-
 		list.setOnContextMenuRequested(this::contextmenu);
+	}
+	public void setChangeListener(ChangeListener<SmallBook> listener) {
+		list.getSelectionModel().selectedItemProperty().addListener(listener);
 	}
 	public void setBooksHelper(BooksHelper booksHelper) {
 		this.booksHelper = booksHelper;
 	}
-	public void setType(TabType type) {
-		this.type = type;
-	}
-	public TabType getType() {
-		return type;
-	}
 	public List<SmallBook> getAllData() {
-		return allData;
+		return Collections.unmodifiableList(allData);
 	}
-	public void setAllData(List<SmallBook> allData) {
-		this.allData = allData;
-	}
-	public ListView<SmallBook> getListView() {
-		return list;
-	}
-
 	private ContextMenu contextmenu2;
 
 	private void contextmenu(ContextMenuEvent e) {
@@ -74,14 +66,12 @@ public class SmallBookTab extends Tab {
 					menuitem("Change Status", e1 -> App.getInstance().changeStatus()),
 					menuitem("Save HTML", e1 -> saveHtml(), list.getSelectionModel().selectedItemProperty().isNull())
 					);
-			if(type == TabType.RECENT)
+			if(getClass() == RecentsBookTab.class)
 				contextmenu2.getItems().add(menuitem("Remove Selected", e1 -> App.getInstance().remove(this)));
 		}
 		contextmenu2.show(App.getStage(), e.getScreenX(), e.getScreenY());
 	}
-	
 	WeakAndLazy<HtmlMaker> htmlMaker = new WeakAndLazy<>(HtmlMaker::new);
-	private Comparator<SmallBook> comparator;
 
 	private void saveHtml() {
 		FileChooser fc = new FileChooser();
@@ -137,16 +127,35 @@ public class SmallBookTab extends Tab {
 
 	private void each(ListView<SmallBook> listview, Consumer<Book> consumer) {
 		List<SmallBook> books = listview.getSelectionModel().getSelectedItems();
-		for (SmallBook s : books) {
+		
+		for (SmallBook s : books) 
 			consumer.accept(App.getInstance().book(s));
-		}
 	}
 	public void filter(Filters f) {
 		f.applyFilter(list.getItems());
-		list.getItems().sort(comparator);
 	}
-	public void setSorter(Comparator<SmallBook> comparator) {
-		this.comparator = comparator;
-		list.getItems().sort(comparator);
+	public void setSorter(Comparator<SmallBook> sorter) {
+		if(sorter == null) {
+			Comparator<SmallBook> c = Comparator.<SmallBook>comparingInt(s -> s.id).reversed();
+			allData.sort(c);
+			list.getItems().sort(c);
+		} else {
+			allData.sort(sorter);
+			list.getItems().sort(sorter);	
+		}
+	}
+	
+	public IntegerBinding sizeProperty() {
+		return Bindings.size(list.getItems());
+	}
+	public MultipleSelectionModel<SmallBook> getSelectionModel() {
+		return list.getSelectionModel();
+	}
+	public void removeAll(List<SmallBook> books) {
+		if(books.isEmpty())
+			return;
+		
+		allData.removeAll(books);
+		list.getItems().removeAll(books);
 	}
 }

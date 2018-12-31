@@ -1,5 +1,6 @@
 package fxml
 
+import sam.book.search.RecentsBookTab
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.HBox
 import javafx.geometry.Insets
@@ -32,6 +33,8 @@ import sam.book.search.Status2
 import sam.book.search.Sorter
 import sam.book.search.DirFilter
 import javafx.scene.control.Tooltip
+import sam.book.search.MainTab
+import sam.book.search.RecentsBookTab
 
 dynamic component Main  {
 	
@@ -69,8 +72,8 @@ dynamic component Main  {
 					   }
 					},
 					center : TabPane id tabpane {
-						SmallBookTab id allTab { text : "All", type : "ALL" },
-						SmallBookTab id recentTab { text : "Recent", type : "RECENT" },
+						MainTab id allTab { text : "All"},
+						RecentsBookTab id recentTab { text : "Recent"},
 						side : "BOTTOM"
 					},
 					bottom : HBox id bottom{

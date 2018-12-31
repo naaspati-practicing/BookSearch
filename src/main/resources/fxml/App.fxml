@@ -27,7 +27,8 @@
 <?import javafx.stage.Stage?>
 <?import sam.book.search.ChoiceBox2?>
 <?import sam.book.search.DirFilter?>
-<?import sam.book.search.SmallBookTab?>
+<?import sam.book.search.MainTab?>
+<?import sam.book.search.RecentsBookTab?>
 <?import sam.book.search.SqlFilterMenu?>
 
 <fx:root xmlns:fx="http://javafx.com/fxml" type="Stage" title="Book Search" width="800" height="500">
@@ -68,8 +69,8 @@
 					</top>
 					<center>
 						<TabPane fx:id="tabpane" side="BOTTOM"> 
-							<SmallBookTab fx:id="allTab" text="All" type="ALL"/> 
-							<SmallBookTab fx:id="recentTab" text="Recent" type="RECENT"/> 
+							<MainTab fx:id="allTab" text="All"/> 
+							<RecentsBookTab fx:id="recentTab" text="Recent"/> 
 						</TabPane>
 					</center>
 					<bottom>

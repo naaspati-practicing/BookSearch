@@ -24,6 +24,8 @@ import java.util.stream.Collectors;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
+import javafx.beans.value.ChangeListener;
+import javafx.beans.value.ObservableValue;
 import javafx.event.ActionEvent;
 import javafx.event.Event;
 import javafx.fxml.FXML;
@@ -54,6 +56,7 @@ import sam.book.BooksHelper;
 import sam.book.SmallBook;
 import sam.books.BookStatus;
 import sam.books.BooksDB;
+import sam.collection.CollectionUtils;
 import sam.collection.Iterables;
 import sam.console.ANSI;
 import sam.fx.alert.FxAlert;
@@ -65,18 +68,17 @@ import sam.myutils.Checker;
 import sam.myutils.MyUtilsPath;
 import sam.reference.WeakAndLazy;
 
-public class App extends Application {
+public class App extends Application implements ChangeListener<SmallBook> {
 	// bookId  -> book
 
 	private BooksHelper booksHelper;
-	private RecentManager recentManager;
 
 	@FXML private DirFilter dirFilter;
 	@FXML private Text searchLabel;
 	@FXML private TextField searchField;
 	@FXML private TabPane tabpane;
-	@FXML private SmallBookTab allTab;
-	@FXML private SmallBookTab recentTab;
+	@FXML private MainTab allTab;
+	@FXML private RecentsBookTab recentTab;
 	@FXML private Text countText;
 	@FXML private Text loadText;
 	@FXML private VBox vbox;
@@ -102,7 +104,7 @@ public class App extends Application {
 
 	@FXML private SqlFilterMenu sqlFilterMenu ;
 
-	private Comparator<SmallBook> currentComparator = Sorter.YEAR.sorter();
+	private Comparator<SmallBook> currentComparator = Sorter.DEFAULT.sorter;
 
 	private final Filters filters = new Filters();
 	private Book currentBook;
@@ -110,10 +112,10 @@ public class App extends Application {
 	private static App instance;
 	private SmallBookTab currentTab;
 
-	public static Stage getStage() {
+	static Stage getStage() {
 		return stage;
 	}
-	public static App getInstance() {
+	static App getInstance() {
 		return instance;
 	}
 
@@ -122,34 +124,38 @@ public class App extends Application {
 		App.stage = stage;
 		App.instance = this;
 		FxFxml.load(ClassLoader.getSystemResource("fxml/App.fxml"), stage, this);
-		reset(null, null);
+		reset(null);
 
 		FxAlert.setParent(stage);
 		FxPopupShop.setParent(stage);
 
-		countText.textProperty().bind(Bindings.size(allTab.getListView().getItems()).asString());
+		countText.textProperty().bind(allTab.sizeProperty().asString());
 		resourceBox.visibleProperty().bind(Bindings.isNotEmpty(resourceBox.getChildren()));
 
 		Platform.runLater(() -> splitpane.setDividerPositions(0.4, 0.6));
 		prepareChoiceBoxes();
 
 		searchField.textProperty().addListener((p, o, n) -> {
-			currentTab.getListView().getSelectionModel().clearSelection();
+			currentTab.getSelectionModel().clearSelection();
 			search0(n);
 		});
 		stage.show();
 
 		booksHelper = new BooksHelper();
-		recentManager = new RecentManager();
-		readSmallBooks();
+		allTab.init(booksHelper);
+		recentTab.init(booksHelper::getSmallBook);
+		
 		forEachSmallBookTab(t -> {
 			t.setSorter(currentComparator);
 			t.setBooksHelper(booksHelper);
 		});
+		
+		this.allTab.setChangeListener(this);
+		this.recentTab.setChangeListener(this);
 
 		tabpane.getSelectionModel().selectedItemProperty().addListener((p, o, n) -> {
 			currentTab = (SmallBookTab)n;
-			countText.textProperty().bind(Bindings.size(currentTab.getListView().getItems()).asString());
+			countText.textProperty().bind(currentTab.sizeProperty().asString());
 			filters.setAllData(currentTab.getAllData());
 		});
 
@@ -182,11 +188,11 @@ public class App extends Application {
 			if(o == n)
 				currentComparator = currentComparator.reversed();
 			else
-				currentComparator = n.sorter();
+				currentComparator = n.sorter;
 
 			forEachSmallBookTab(t -> t.setSorter(currentComparator));
 		});
-		currentComparator = sortChoice.getSelected().sorter();
+		currentComparator = sortChoice.getSelected().sorter;
 		filters.setChoiceFilter(statusChoice.getSelected());
 	}
 	@FXML
@@ -206,7 +212,7 @@ public class App extends Application {
 			try {
 				if(open) {
 					getHostServices().showDocument(p.toUri().toString());
-					updateRecent();
+					recentTab.add(currentBook);
 				} else
 					FileOpener.openFileLocationInExplorer(p.toFile());
 			} catch (IOException e1) {
@@ -214,27 +220,6 @@ public class App extends Application {
 			}
 		}
 	}
-
-	private void updateRecent() {
-		if(recentManager.add(currentBook)) {
-			SmallBook sml = allTab.getAllData().stream().filter(s -> s.id == currentBook.book.id).findFirst().get();
-			List<SmallBook> list = recentTab.getAllData();
-			list.remove(sml);
-			list.add(0, sml);
-
-			if(currentTab == recentTab)
-				recentTab.filter(filters);
-		}
-	}
-	private void readSmallBooks() throws Exception {
-		List<SmallBook> l = booksHelper.getBooks();
-
-		allTab.setAllData(l);
-		recentTab.setAllData(recentManager.get(l));
-		// applyFilter();
-		loadText.setText("cache loaded");
-	}
-
 	@FXML
 	private void openPathAction(ActionEvent e){
 		open(false, (Node)e.getSource());
@@ -261,11 +246,10 @@ public class App extends Application {
 		super.stop();
 		if(booksHelper != null)
 			booksHelper.close();
-		if(recentManager != null) {
-			recentManager.save();
-			statusChoice.close();
-			sortChoice.close();
-		}
+		
+		recentTab.close();
+		statusChoice.close();
+		sortChoice.close();
 	}
 	
 	private void addResourceLinks(List<String> resource) {
@@ -387,22 +371,23 @@ public class App extends Application {
 		FxClipboard.setString(s);
 		FxPopupShop.showHidePopup("copied: "+s, 1500);
 	}
-	public void remove(SmallBookTab tab) {
-		List<SmallBook> books = tab.getListView().getSelectionModel().getSelectedItems();
+	void remove(SmallBookTab tab) {
+		List<SmallBook> books = tab.getSelectionModel().getSelectedItems();
 		if(books.isEmpty())
 			return;
-		books = new ArrayList<>(books);
-		tab.getListView().getSelectionModel().clearSelection();
-		tab.getListView().getItems().removeAll(books);
-		if(tab.getType() == TabType.RECENT)
-			recentManager.remove(books);
+		
+		books = CollectionUtils.copyOf(books);
+		tab.getSelectionModel().clearSelection();
+		
+		tab.removeAll(books);
 	}
 
-	public void reloadResoueces(Event e) {
+	@FXML
+	private void reloadResoueces(Event e) {
 		((MenuItem )e.getSource()).setDisable(true);
 		ResourceHelper.reloadResoueces();
 	}
-	public void reset(SmallBook n, TabType type) {
+	private void reset(SmallBook n) {
 		vbox.setVisible(n != null);
 		if(n == null) return;
 
@@ -470,7 +455,7 @@ public class App extends Application {
 	private static String string(int value) {
 		return String.valueOf(value);
 	}
-	public void search0(String str) {
+	private void search0(String str) {
 		if(isEmpty(str)) {
 			filters.setStringFilter((String)null);
 		} else {
@@ -496,8 +481,8 @@ public class App extends Application {
 		}
 
 	}
-	public void changeStatus() {
-		List<SmallBook> books = currentTab.getListView().getSelectionModel().getSelectedItems();
+	void changeStatus() {
+		List<SmallBook> books = currentTab.getSelectionModel().getSelectedItems();
 		if(books.isEmpty())
 			return;
 
@@ -513,7 +498,11 @@ public class App extends Application {
 		booksHelper.changeStatus(books, status);
 		filters.setChoiceFilter(statusChoice.getSelected());
 	}
-	public Book book(SmallBook s) {
+	Book book(SmallBook s) {
 		return booksHelper.book(s);
+	}
+	@Override
+	public void changed(ObservableValue<? extends SmallBook> observable, SmallBook oldValue, SmallBook newValue) {
+		reset(newValue);
 	}
 }

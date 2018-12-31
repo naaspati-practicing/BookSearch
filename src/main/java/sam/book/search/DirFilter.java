@@ -39,7 +39,7 @@ public class DirFilter extends IconButton implements EventHandler<ActionEvent>, 
 	public void init(BooksHelper booksHelper, Filters filters) {
 		this.booksHelper = booksHelper;
 		this.filters = filters;
-		this.booksHelper.paths().forEach(p -> selected.set(p.getPathId()));
+		this.booksHelper.getPaths().forEach(p -> selected.set(p.getPathId()));
 	}
 	
 	private static class Wrap {
@@ -67,7 +67,7 @@ public class DirFilter extends IconButton implements EventHandler<ActionEvent>, 
 		Label path = new Label();
 		path.setWrapText(true);
 		
-		ObservableList<Wrap> wraps = booksHelper.paths().map(Wrap::new).collect(Collectors.toCollection(FXCollections::observableArrayList));
+		ObservableList<Wrap> wraps = booksHelper.getPaths().stream().map(Wrap::new).collect(Collectors.toCollection(FXCollections::observableArrayList));
 		ListView<Wrap> list = new ListView<>(wraps);
 		list.getItems().sort(Comparator.comparing(p -> p.path.getPath()));
 		
