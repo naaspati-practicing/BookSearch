@@ -190,7 +190,7 @@ public class BooksHelper implements AutoCloseable {
 		}
 
 		File dbfile = BooksDB.DB_PATH.toFile();
-		if(LongSerializer.read(lastmodifiedtime) == dbfile.lastModified()) {
+		if(new LongSerializer().read(lastmodifiedtime) == dbfile.lastModified()) {
 			System.out.println("UPDATE SKIPPED: LongSerializer.read(lastmodifiedtime.toPath()) == dbfile.lastModified()");
 			return;
 		}
@@ -352,7 +352,7 @@ public class BooksHelper implements AutoCloseable {
 		}
 
 		if(modified || db_modified)
-			LongSerializer.write(BooksDB.DB_PATH.toFile().lastModified(), lastmodifiedtime);
+			new LongSerializer().write(BooksDB.DB_PATH.toFile().lastModified(), lastmodifiedtime);
 	}
 	public void changeStatus(List<SmallBook> books, BookStatus status) {
 		try {

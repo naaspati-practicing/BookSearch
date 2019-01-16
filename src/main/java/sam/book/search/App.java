@@ -1,8 +1,9 @@
 package sam.book.search;
+import static sam.book.search.ResourceHelper.RESOURCE_DIR;
+import static sam.book.search.ResourceHelper.getResources;
 import static sam.myutils.Checker.isEmpty;
 import static sam.string.StringUtils.containsAny;
 
-import static sam.book.search.ResourceHelper.*;
 import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -10,7 +11,6 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
@@ -415,7 +415,7 @@ public class App extends Application implements ChangeListener<SmallBook> {
 		
 		descriptionText.getEngine().setUserStyleSheetLocation(ClassLoader.getSystemResource("css/description.css").toString());
 
-		List<String> list = getResources(b);
+		List<Path> list = getResources(b);
 		List<String> list2;
 		try {
 			list2 = booksHelper.getResources(b);

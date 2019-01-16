@@ -68,7 +68,7 @@ public class ChoiceBox2<E> extends VBox implements EventHandler<javafx.event.Act
 		init = true;
 		this.data = values;
 		Path p = Paths.get(values.getClass().getComponentType().getName());
-		select(Files.notExists(p) ? values[0] : values[IntSerializer.read(p)]);
+		select(Files.notExists(p) ? values[0] : values[new IntSerializer().read(p)]);
 	}
 	public E getSelected() {
 		return selected.get();
@@ -77,7 +77,7 @@ public class ChoiceBox2<E> extends VBox implements EventHandler<javafx.event.Act
 	@Override
 	public void close() throws IOException {
 		Path p = Paths.get(getSelected().getClass().getName());
-		IntSerializer.write(((Enum)getSelected()).ordinal(), p);
+		new IntSerializer().write(((Enum)getSelected()).ordinal(), p);
 	}
 	
 }

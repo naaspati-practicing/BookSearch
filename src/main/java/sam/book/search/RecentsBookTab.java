@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.function.IntFunction;
@@ -25,7 +24,7 @@ public class RecentsBookTab extends SmallBookTab implements Closeable {
 	private final Path cache_path = Paths.get("recents.dat") ;
 
 	public void init(IntFunction<SmallBook> bookGetter) throws IOException {
-		this.exists = Files.notExists(cache_path) ? new IntList() : new IntList(IntSerializer.readArray(cache_path));
+		this.exists = Files.notExists(cache_path) ? new IntList() : new IntList(new IntSerializer().readArray(cache_path));
 
 		IntSet already = new IntSet();
 
@@ -97,7 +96,7 @@ public class RecentsBookTab extends SmallBookTab implements Closeable {
 		if(allData.isEmpty())
 			Files.deleteIfExists(cache_path);
 		else {
-			IntSerializer.write(exists.toArray(), cache_path);
+			new IntSerializer().write(exists.toArray(), cache_path);
 			System.out.println("saved: "+cache_path);
 		}
 	}
