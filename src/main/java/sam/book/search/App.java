@@ -365,7 +365,10 @@ public class App extends Application implements ChangeListener<SmallBook> {
 	}
 	@FXML
 	private void copyCombinedAction(ActionEvent e) {
-		copyToClip(BooksDB.createDirname(currentBook.book.id, currentBook.book.filename));
+		copyToClip(dirname(currentBook));
+	}
+	String dirname(Book b) {
+		return BooksDB.createDirname(b.book.id, b.book.filename);
 	}
 	private void copyToClip(String s) {
 		FxClipboard.setString(s);
@@ -391,8 +394,6 @@ public class App extends Application implements ChangeListener<SmallBook> {
 		vbox.setVisible(n != null);
 		if(n == null) return;
 
-		System.out.println("change view: "+n.id);
-
 		currentBook = booksHelper.book(n);
 		Book b = currentBook;
 		Path fullPath = booksHelper.getFullPath(b.book);
@@ -410,7 +411,7 @@ public class App extends Application implements ChangeListener<SmallBook> {
 		isbnText.setText(b.isbn);
 		page_countText.setText(String.valueOf(b.book.page_count));
 		yearText.setText(String.valueOf(b.book.year));
-		descriptionText.getEngine().loadContent(b.description);
+		descriptionText.getEngine().loadContent(Checker.isEmpty(b.description) ? "NO DESCRIPTION" : b.description);
 		statusText.setText(b.book.getStatus() == null ? null : b.book.getStatus().toString());
 		
 		descriptionText.getEngine().setUserStyleSheetLocation(ClassLoader.getSystemResource("css/description.css").toString());
@@ -434,6 +435,8 @@ public class App extends Application implements ChangeListener<SmallBook> {
 			list.forEach(c -> cl.add(hl(RESOURCE_DIR.resolve(c), nodes.poll())));
 			addResourceLinks(list2);
 		}
+		
+		System.out.println("change view: "+dirname(b));
 	}
 	private Node hl(Object c, Node node) {
 		Hyperlink h = node != null ? (Hyperlink)node : new Hyperlink();

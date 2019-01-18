@@ -12,7 +12,7 @@ dependencies {
 
 mainClassName = 'Main'
 
-version = '1.07'
+version = '1.08'
 sourceCompatibility = JavaVersion.VERSION_1_8 
 targetCompatibility = JavaVersion.VERSION_1_8
 
