@@ -82,6 +82,7 @@ dynamic component Main  {
 						alignment : "CENTER",
 						ChoiceBox2<Status2> id statusChoice {title: "Status"},
 						ChoiceBox2<Sorter> id sortChoice {title: "Sort By"},
+						Button {text : "Group By", onAction : controllermethod groupByAction },
 						Pane { static hgrow : "ALWAYS", maxWidth : const Double#MAX_VALUE },
 						VBox {
 							Text id countText {styleClass : ["smalltext"]},

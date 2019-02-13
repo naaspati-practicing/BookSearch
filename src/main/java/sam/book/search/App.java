@@ -14,9 +14,12 @@ import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -26,6 +29,7 @@ import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
+import javafx.collections.FXCollections;
 import javafx.event.ActionEvent;
 import javafx.event.Event;
 import javafx.fxml.FXML;
@@ -35,6 +39,7 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ChoiceDialog;
 import javafx.scene.control.Hyperlink;
+import javafx.scene.control.ListView;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TabPane;
@@ -61,6 +66,7 @@ import sam.collection.Iterables;
 import sam.console.ANSI;
 import sam.fx.alert.FxAlert;
 import sam.fx.clipboard.FxClipboard;
+import sam.fx.helpers.FxCell;
 import sam.fx.helpers.FxFxml;
 import sam.fx.popup.FxPopupShop;
 import sam.io.fileutils.FileOpener;
@@ -144,12 +150,12 @@ public class App extends Application implements ChangeListener<SmallBook> {
 		booksHelper = new BooksHelper();
 		allTab.init(booksHelper);
 		recentTab.init(booksHelper::getSmallBook);
-		
+
 		forEachSmallBookTab(t -> {
 			t.setSorter(currentComparator);
 			t.setBooksHelper(booksHelper);
 		});
-		
+
 		this.allTab.setChangeListener(this);
 		this.recentTab.setChangeListener(this);
 
@@ -171,6 +177,88 @@ public class App extends Application implements ChangeListener<SmallBook> {
 			currentTab.setSorter(currentComparator);
 			currentTab.filter(filters);
 		});
+	}
+	
+	@SuppressWarnings("rawtypes")
+	private class Grouper implements ChangeListener<SmallBook> {
+		private final ChoiceDialog<Grouping> choice;
+		private final Stage stg;
+		private final ListView<Object[]> left = new ListView<>();
+		private final ListView<SmallBook> center = new ListView<>();
+		
+		private final Map<Comparable, List<SmallBook>> map = new HashMap<>();
+
+		public Grouper() {
+			choice = new ChoiceDialog<>(null, Grouping.values());
+			choice.initModality(Modality.APPLICATION_MODAL);
+			choice.initOwner(stage);
+
+			choice.setHeaderText("Group By");
+
+			this.stg = new Stage(StageStyle.UTILITY);
+			stg.initModality(Modality.NONE);
+			stg.initOwner(stage);
+
+			SplitPane root = new SplitPane(left, center);
+			root.setDividerPositions(0.3, 0.6);
+			stg.setScene(new Scene(root));
+			tabpane.getSelectionModel().selectedItemProperty().addListener(i -> stg.hide());
+			
+			center.getSelectionModel().selectedItemProperty().addListener(this);
+			left.getSelectionModel().selectedItemProperty().addListener((p, o, n) -> setCenter(n == null ? null : map.get(n[0])));
+			
+			left.setCellFactory(FxCell.listCell(s -> (String)s[1]));
+			
+		}
+		@SuppressWarnings("unchecked")
+		public void start(List<SmallBook> list) {
+			choice.setSelectedItem(null);
+			Grouping g = choice.showAndWait().orElse(null);
+			if(g == null) {
+				FxPopupShop.showHidePopup("cancelled", 1500);
+				return;
+			}
+			map.forEach((s,t) -> t.clear());
+			list.stream().collect(Collectors.groupingBy(g.mapper, () -> map, Collectors.toList()));
+			
+			setCenter(null);
+			left.getItems().clear();
+			
+			map.forEach((s,t) -> {
+				if(!t.isEmpty())
+					left.getItems().add(new Object[]{s, String.format("%-6s (%s)", s, t.size())});
+			});
+			
+			
+			left.getItems().sort(Comparator.comparing(c -> (Comparable)c[0]));
+			
+			stg.setTitle("Group by: "+g);
+			stg.show();
+		}
+		@Override
+		public void changed(ObservableValue<? extends SmallBook> observable, SmallBook oldValue, SmallBook newValue) {
+			if(newValue != null)
+				currentTab.list.getSelectionModel().select(newValue);
+		}
+		public void setCenter(List<SmallBook> list) {
+			center.getSelectionModel().clearSelection();
+			if(Checker.isEmpty(list))
+				center.getItems().clear();
+			else
+				center.getItems().setAll(list);
+		}
+	}
+
+	private final WeakAndLazy<Grouper> grouper = new WeakAndLazy<>(Grouper::new);
+
+	@FXML
+	private void groupByAction(ActionEvent e) {
+		List<SmallBook> list = Optional.ofNullable(currentTab).map(c -> c.list).map(ListView::getItems).filter(Checker::isNotEmpty).orElse(null);
+		if(Checker.isEmpty(list)) {
+			FxPopupShop.showHidePopup("nothing to group", 1500);
+			return;
+		}
+		grouper.get().start(list);
 	}
 	private void forEachSmallBookTab(Consumer<SmallBookTab> action) {
 		tabpane.getTabs().forEach(t -> {
@@ -246,16 +334,16 @@ public class App extends Application implements ChangeListener<SmallBook> {
 		super.stop();
 		if(booksHelper != null)
 			booksHelper.close();
-		
+
 		recentTab.close();
 		statusChoice.close();
 		sortChoice.close();
 	}
-	
+
 	private void addResourceLinks(List<String> resource) {
 		resource.forEach(p -> resourceBox.getChildren().add(hl(p.charAt(0) == '\\' ? RESOURCE_DIR.resolve(p.substring(1)) : p, null)));
 	}
-	
+
 	WeakAndLazy<Stage> resourceChoice = new WeakAndLazy<>(this::resourceChoiceStage);
 
 	private Stage resourceChoiceStage() {
@@ -274,7 +362,7 @@ public class App extends Application implements ChangeListener<SmallBook> {
 		s.setScene(new Scene(box));
 		s.sizeToScene();
 		s.setResizable(false);
-		
+
 		return s;
 	}
 
@@ -295,7 +383,7 @@ public class App extends Application implements ChangeListener<SmallBook> {
 					.filter(e -> !e.isEmpty())
 					.map(list -> list.stream().map(Node::getUserData).filter(e -> e instanceof Path).map(e -> (Path)e).map(p -> p.toAbsolutePath().normalize()).collect(Collectors.toList()))
 					.orElse(Collections.emptyList());
-			
+
 			List<String> result = files.stream()
 					.map(f -> f.toPath().toAbsolutePath().normalize())
 					.filter(f -> {
@@ -307,7 +395,7 @@ public class App extends Application implements ChangeListener<SmallBook> {
 					})
 					.map(f -> f.startsWith(RESOURCE_DIR) ? "\\"+f.subpath(RESOURCE_DIR.getNameCount(), f.getNameCount()) : f.toString())
 					.collect(Collectors.toList());
-			
+
 			if(result.isEmpty()) {
 				System.out.println(ANSI.yellow("already addded"));
 				return ;
@@ -322,7 +410,7 @@ public class App extends Application implements ChangeListener<SmallBook> {
 			}
 		}
 	}
-	
+
 	private void newUrlResource() {
 		TextInputDialog dialog = new TextInputDialog();
 		dialog.initOwner(stage);
@@ -344,7 +432,7 @@ public class App extends Application implements ChangeListener<SmallBook> {
 					FxAlert.showErrorDialog(s, "bad url", e);
 					return;
 				}
-				
+
 				if(resourceBox.getChildren().isEmpty() || resourceBox.getChildren().stream().map(Node::getUserData).noneMatch(n -> s.equalsIgnoreCase(n.toString()))) {
 					try {
 						booksHelper.addResource(currentBook, Collections.singletonList(s));
@@ -358,7 +446,7 @@ public class App extends Application implements ChangeListener<SmallBook> {
 			}
 		});
 	}
-	
+
 	@FXML
 	private void addResourceAction(Event e) {
 		resourceChoice.get().showAndWait();
@@ -378,10 +466,10 @@ public class App extends Application implements ChangeListener<SmallBook> {
 		List<SmallBook> books = tab.getSelectionModel().getSelectedItems();
 		if(books.isEmpty())
 			return;
-		
+
 		books = CollectionUtils.copyOf(books);
 		tab.getSelectionModel().clearSelection();
-		
+
 		tab.removeAll(books);
 	}
 
@@ -413,7 +501,7 @@ public class App extends Application implements ChangeListener<SmallBook> {
 		yearText.setText(String.valueOf(b.book.year));
 		descriptionText.getEngine().loadContent(Checker.isEmpty(b.description) ? "NO DESCRIPTION" : b.description);
 		statusText.setText(b.book.getStatus() == null ? null : b.book.getStatus().toString());
-		
+
 		descriptionText.getEngine().setUserStyleSheetLocation(ClassLoader.getSystemResource("css/description.css").toString());
 
 		List<Path> list = getResources(b);
@@ -426,7 +514,7 @@ public class App extends Application implements ChangeListener<SmallBook> {
 		}
 
 		List<Node> cl = resourceBox.getChildren();
-		
+
 		if(Checker.isEmpty(list) && Checker.isEmpty(list2))
 			cl.clear();
 		else {
@@ -435,7 +523,7 @@ public class App extends Application implements ChangeListener<SmallBook> {
 			list.forEach(c -> cl.add(hl(RESOURCE_DIR.resolve(c), nodes.poll())));
 			addResourceLinks(list2);
 		}
-		
+
 		System.out.println("change view: "+dirname(b));
 	}
 	private Node hl(Object c, Node node) {

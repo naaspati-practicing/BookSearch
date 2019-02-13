@@ -77,6 +77,7 @@
 						<HBox fx:id="bottom" spacing="5" alignment="CENTER"> 
 							<ChoiceBox2 fx:id="statusChoice" title="Status"/> 
 							<ChoiceBox2 fx:id="sortChoice" title="Sort By"/> 
+							<Button text="Group By" onAction="#groupByAction"/> 
 							<Pane HBox.hgrow="ALWAYS"> 
 								<maxWidth><Double fx:constant="MAX_VALUE" /></maxWidth>
 							</Pane>
