@@ -9,7 +9,7 @@ import static sam.books.BooksMeta.CHANGE_LOG_TABLE_NAME;
 import static sam.books.BooksMeta.DML_TYPE;
 import static sam.books.BooksMeta.ID;
 import static sam.books.BooksMeta.LOG_NUMBER;
-import static sam.books.BooksMeta.PATH_TABLE_NAME;
+import static sam.books.BooksMeta.*;
 import static sam.books.BooksMeta.TABLENAME;
 
 import java.io.BufferedInputStream;
@@ -243,7 +243,7 @@ public class BooksHelper implements AutoCloseable {
 		modified = true;
 		
 		_books = apply(_books, books, s -> s.id, SmallBook::new, BOOK_TABLE_NAME, ID, SmallBook.columns());
-		
+		_paths = apply(_paths, paths, PathsImpl::getPathId, PathsImpl::new, PATH_TABLE_NAME, PATH_ID, null);
 	}
 
 	private <E> E[] apply(E[] array, Temp252 temp, ToIntFunction<E> idOf, SqlFunction<ResultSet, E> mapper, String tablename, String idColumn, String[] columnNames) throws SQLException {
@@ -261,7 +261,7 @@ public class BooksHelper implements AutoCloseable {
 		}
 		
 		if(!temp.update.isEmpty() || !temp.nnew.isEmpty()) {
-			StringBuilder sb = JDBCHelper.selectSQL(tablename, columnNames)
+			StringBuilder sb = (columnNames == null ? new StringBuilder("SELECT * FROM ").append(tablename) : JDBCHelper.selectSQL(tablename, columnNames))
 					.append(" WHERE ")
 					.append(idColumn).append(" IN(");
 
