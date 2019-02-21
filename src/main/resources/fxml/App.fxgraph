@@ -1,3 +1,4 @@
+
 package fxml
 
 import sam.book.search.RecentsBookTab
@@ -35,6 +36,7 @@ import sam.book.search.DirFilter
 import javafx.scene.control.Tooltip
 import sam.book.search.MainTab
 import sam.book.search.RecentsBookTab
+import sam.fx.helpers.IconButton
 
 dynamic component Main  {
 	
@@ -42,8 +44,8 @@ dynamic component Main  {
 		title : "Book Search",
 		width : 800,
 		height : 500,
-		scene : Scene {
-			SplitPane id splitpane {
+		scene : Scene id mainScene {
+			SplitPane id mainRoot {
 				BorderPane {
 					top: BorderPane {
 						top: MenuBar {
@@ -63,11 +65,12 @@ dynamic component Main  {
 							alignment : "CENTER_LEFT",
 							Text id searchLabel { text : "Search" },
 							TextField id searchField { maxWidth : const Double#MAX_VALUE, static hgrow : "ALWAYS" },
-							DirFilter id dirFilter {
+							IconButton id dirFilter {
 								icon : location "../dirFilter.png", 
 								fitWidth : 20, 
 								preserveRatio : true,
-								tooltip : Tooltip {text : "Dir Filter"} 
+								tooltip : Tooltip {text : "Dir Filter"},
+								onAction : controllermethod dirFilterAction 
 							}
 					   }
 					},

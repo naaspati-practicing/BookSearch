@@ -26,16 +26,16 @@
 <?import javafx.scene.web.WebView?>
 <?import javafx.stage.Stage?>
 <?import sam.book.search.ChoiceBox2?>
-<?import sam.book.search.DirFilter?>
 <?import sam.book.search.MainTab?>
 <?import sam.book.search.RecentsBookTab?>
 <?import sam.book.search.SqlFilterMenu?>
+<?import sam.fx.helpers.IconButton?>
 
 <fx:root xmlns:fx="http://javafx.com/fxml" type="Stage" title="Book Search" width="800" height="500">
 
 	<scene>
-		<Scene> 
-			<SplitPane fx:id="splitpane"> 
+		<Scene fx:id="mainScene"> 
+			<SplitPane fx:id="mainRoot"> 
 				<BorderPane> 
 					<top>
 						<BorderPane> 
@@ -55,11 +55,11 @@
 									<TextField fx:id="searchField" HBox.hgrow="ALWAYS"> 
 										<maxWidth><Double fx:constant="MAX_VALUE" /></maxWidth>
 									</TextField>
-									<DirFilter fx:id="dirFilter" icon="@../dirFilter.png" fitWidth="20" preserveRatio="true"> 
+									<IconButton fx:id="dirFilter" icon="@../dirFilter.png" fitWidth="20" preserveRatio="true" onAction="#dirFilterAction"> 
 										<tooltip>
 											<Tooltip text="Dir Filter"/> 
 										</tooltip>
-									</DirFilter>
+									</IconButton>
 									<padding>
 										<Insets top="5" bottom="5" left="5" right="5"/> 
 									</padding>

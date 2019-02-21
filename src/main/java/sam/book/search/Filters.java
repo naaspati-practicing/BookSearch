@@ -47,6 +47,9 @@ public class Filters {
 		preFilters[DIR_FILTER] = dirFilter; 
 		search.set(preFilter(), null);
 	}
+	public DirFilter getDirFilter() {
+		return (DirFilter) preFilters[DIR_FILTER];
+	}
 	private Predicate<SmallBook> predicate(Predicate<SmallBook> s) {
 		return s;
 	}

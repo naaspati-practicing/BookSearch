@@ -182,5 +182,4 @@ public class SqlFilterMenu extends Menu {
 	private MenuItem newItem(String s) {
 		return menuitem(s, this::openFilterAction);
 	}
-
 }

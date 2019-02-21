@@ -63,13 +63,13 @@ public abstract class SmallBookTab extends Tab {
 		if(contextmenu2 == null) {
 			contextmenu2 = new ContextMenu(
 					menuitem("Copy Selected", e1 -> copyselected()),
-					menuitem("Change Status", e1 -> App.getInstance().changeStatus()),
+					menuitem("Change Status", e1 -> App.actions().changeStatus()),
 					menuitem("Save HTML", e1 -> saveHtml(), list.getSelectionModel().selectedItemProperty().isNull())
 					);
 			if(getClass() == RecentsBookTab.class)
-				contextmenu2.getItems().add(menuitem("Remove Selected", e1 -> App.getInstance().remove(this)));
+				contextmenu2.getItems().add(menuitem("Remove Selected", e1 -> App.actions().remove(this)));
 		}
-		contextmenu2.show(App.getStage(), e.getScreenX(), e.getScreenY());
+		contextmenu2.show(list, e.getScreenX(), e.getScreenY());
 	}
 	WeakAndLazy<HtmlMaker> htmlMaker = new WeakAndLazy<>(HtmlMaker::new);
 
@@ -129,7 +129,7 @@ public abstract class SmallBookTab extends Tab {
 		List<SmallBook> books = listview.getSelectionModel().getSelectedItems();
 		
 		for (SmallBook s : books) 
-			consumer.accept(App.getInstance().book(s));
+			consumer.accept(App.actions().book(s));
 	}
 	public void filter(Filters f) {
 		f.applyFilter(list.getItems());

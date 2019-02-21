@@ -33,8 +33,10 @@ import javafx.event.Event;
 import javafx.fxml.FXML;
 import javafx.geometry.Insets;
 import javafx.scene.Node;
+import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.ChoiceBox;
 import javafx.scene.control.ChoiceDialog;
 import javafx.scene.control.Hyperlink;
 import javafx.scene.control.ListView;
@@ -46,6 +48,7 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.MouseEvent;
+import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Text;
@@ -54,6 +57,7 @@ import javafx.stage.FileChooser;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
+import javafx.stage.Window;
 import sam.book.Book;
 import sam.book.BooksHelper;
 import sam.book.SmallBook;
@@ -65,19 +69,24 @@ import sam.console.ANSI;
 import sam.fx.alert.FxAlert;
 import sam.fx.clipboard.FxClipboard;
 import sam.fx.helpers.FxCell;
+import sam.fx.helpers.FxChoiceBox;
 import sam.fx.helpers.FxFxml;
+import sam.fx.helpers.FxHBox;
 import sam.fx.popup.FxPopupShop;
 import sam.io.fileutils.FileOpener;
 import sam.myutils.Checker;
 import sam.myutils.MyUtilsPath;
+import sam.nopkg.EnsureSingleton;
 import sam.reference.WeakAndLazy;
 
-public class App extends Application implements ChangeListener<SmallBook> {
-	// bookId  -> book
+public class App extends Application implements ChangeListener<SmallBook>, Actions {
+	private static final EnsureSingleton singleton = new EnsureSingleton();
+	{ singleton.init(); }
 
+	// bookId  -> book
 	private BooksHelper booksHelper;
 
-	@FXML private DirFilter dirFilter;
+	@FXML Scene mainScene;
 	@FXML private Text searchLabel;
 	@FXML private TextField searchField;
 	@FXML private TabPane tabpane;
@@ -103,7 +112,7 @@ public class App extends Application implements ChangeListener<SmallBook> {
 	@FXML private WebView descriptionText;
 	@FXML private ChoiceBox2<Status2> statusChoice;
 	@FXML private ChoiceBox2<Sorter> sortChoice;
-	@FXML private SplitPane splitpane;
+	@FXML private SplitPane mainRoot;
 	@FXML private VBox resourceBox;
 
 	@FXML private SqlFilterMenu sqlFilterMenu ;
@@ -112,21 +121,18 @@ public class App extends Application implements ChangeListener<SmallBook> {
 
 	private final Filters filters = new Filters();
 	private Book currentBook;
-	private static Stage stage;
-	private static App instance;
 	private SmallBookTab currentTab;
+	private static Stage mainStage;
+	private static Actions actions;
 
-	static Stage getStage() {
-		return stage;
-	}
-	static App getInstance() {
-		return instance;
+	public static Window getStage() {
+		return mainStage;
 	}
 
 	@Override
 	public void start(Stage stage) throws Exception {
-		App.stage = stage;
-		App.instance = this;
+		App.mainStage = stage;
+		actions = this;
 		FxFxml.load(ClassLoader.getSystemResource("fxml/App.fxml"), stage, this);
 		reset(null);
 
@@ -136,7 +142,7 @@ public class App extends Application implements ChangeListener<SmallBook> {
 		countText.textProperty().bind(allTab.sizeProperty().asString());
 		resourceBox.visibleProperty().bind(Bindings.isNotEmpty(resourceBox.getChildren()));
 
-		Platform.runLater(() -> splitpane.setDividerPositions(0.4, 0.6));
+		Platform.runLater(() -> mainRoot.setDividerPositions(0.4, 0.6));
 		prepareChoiceBoxes();
 
 		searchField.textProperty().addListener((p, o, n) -> {
@@ -163,9 +169,8 @@ public class App extends Application implements ChangeListener<SmallBook> {
 			filters.setAllData(currentTab.getAllData());
 		});
 
-		dirFilter.init(booksHelper, filters);
 		sqlFilterMenu.init(booksHelper, filters);
-		stage.getScene().getStylesheets().add("css/style.css");
+		mainScene.getStylesheets().add("css/style.css");
 
 		Platform.runLater(() -> {
 			currentTab = (SmallBookTab) tabpane.getSelectionModel().getSelectedItem();
@@ -176,62 +181,80 @@ public class App extends Application implements ChangeListener<SmallBook> {
 			currentTab.filter(filters);
 		});
 	}
-	
+
 	@SuppressWarnings("rawtypes")
-	private class Grouper implements ChangeListener<SmallBook> {
-		private final ChoiceDialog<Grouping> choice;
-		private final Stage stg;
+	private class Grouper extends BorderPane implements ChangeListener<SmallBook> {
+		private final ChoiceBox<Grouping> choice;
 		private final ListView<Object[]> left = new ListView<>();
 		private final ListView<SmallBook> center = new ListView<>();
-		
+		private final Button back = new Button("back");
+
 		private final Map<Comparable, List<SmallBook>> map = new HashMap<>();
+		private final ChangeListener<Object[]> leftListener;
+		private final ChangeListener<Grouping> choiceLister;
+		private List<SmallBook> list;
+		private Node previous;
 
 		public Grouper() {
-			choice = new ChoiceDialog<>(null, Grouping.values());
-			choice.initModality(Modality.APPLICATION_MODAL);
-			choice.initOwner(stage);
+			choice = FxChoiceBox.choiceBox(Grouping.values(), Grouping::valueOf, true);
 
-			choice.setHeaderText("Group By");
+			setBottom(FxHBox.buttonBox(new Text("Group By: "), choice));
+			setTop(back);
+			back.setOnAction(e -> hide());
+			BorderPane.setMargin(back, new Insets(2, 5, 2, 5));
 
-			this.stg = new Stage(StageStyle.UTILITY);
-			stg.initModality(Modality.NONE);
-			stg.initOwner(stage);
+			SplitPane sp = new SplitPane(left, center);
+			sp.setDividerPositions(0.3, 0.6);
+			setCenter(sp);
 
-			SplitPane root = new SplitPane(left, center);
-			root.setDividerPositions(0.3, 0.6);
-			stg.setScene(new Scene(root));
-			tabpane.getSelectionModel().selectedItemProperty().addListener(i -> stg.hide());
-			
-			center.getSelectionModel().selectedItemProperty().addListener(this);
-			left.getSelectionModel().selectedItemProperty().addListener((p, o, n) -> setCenter(n == null ? null : map.get(n[0])));
-			
+			this.leftListener = (p, o, n) -> setCenter(n == null ? null : map.get(n[0]));
+			this.choiceLister = (p, o, n) -> reset();
+
 			left.setCellFactory(FxCell.listCell(s -> (String)s[1]));
-			
+
+		}
+		public void show(List<SmallBook> list) {
+			this.list = list;
+			this.previous = App.this.setLeft(this);
+
+			set();
+			reset();
+		}
+		void hide() {
+			unset();
+			App.this.setLeft(previous);
+		}
+		private void set() {
+			center.getSelectionModel().selectedItemProperty().addListener(this);
+			left.getSelectionModel().selectedItemProperty().addListener(leftListener);
+			choice.getSelectionModel().selectedItemProperty().addListener(choiceLister);
+		}
+		public void unset() {
+			center.getSelectionModel().selectedItemProperty().removeListener(this);
+			left.getSelectionModel().selectedItemProperty().removeListener(leftListener);
+			choice.getSelectionModel().selectedItemProperty().removeListener(choiceLister);
 		}
 		@SuppressWarnings("unchecked")
-		public void start(List<SmallBook> list) {
-			choice.setSelectedItem(null);
-			Grouping g = choice.showAndWait().orElse(null);
+		private void reset() {
+			Grouping g = choice.getSelectionModel().getSelectedItem();
 			if(g == null) {
-				FxPopupShop.showHidePopup("cancelled", 1500);
-				return;
+				left.getSelectionModel().clearSelection();
+				left.getItems().clear();
+				// title.setText(null);
+			} else {
+				map.forEach((s,t) -> t.clear());
+				list.stream().collect(Collectors.groupingBy(g.mapper, () -> map, Collectors.toList()));
+				left.getSelectionModel().clearSelection();
+				left.getItems().clear();
+
+				map.forEach((s,t) -> {
+					if(!t.isEmpty())
+						left.getItems().add(new Object[]{s, String.format("%-6s (%s)", s, t.size())});
+				});
+
+				left.getItems().sort(Comparator.comparing(c -> (Comparable)c[0]));
+				// title.setText("Group by: "+g);
 			}
-			map.forEach((s,t) -> t.clear());
-			list.stream().collect(Collectors.groupingBy(g.mapper, () -> map, Collectors.toList()));
-			
-			setCenter(null);
-			left.getItems().clear();
-			
-			map.forEach((s,t) -> {
-				if(!t.isEmpty())
-					left.getItems().add(new Object[]{s, String.format("%-6s (%s)", s, t.size())});
-			});
-			
-			
-			left.getItems().sort(Comparator.comparing(c -> (Comparable)c[0]));
-			
-			stg.setTitle("Group by: "+g);
-			stg.show();
 		}
 		@Override
 		public void changed(ObservableValue<? extends SmallBook> observable, SmallBook oldValue, SmallBook newValue) {
@@ -247,6 +270,16 @@ public class App extends Application implements ChangeListener<SmallBook> {
 		}
 	}
 
+	private Parent dirFilterPrevious;
+	private final WeakAndLazy<DirFilterView> wdirFilter = new WeakAndLazy<>(() -> new DirFilterView(filters, booksHelper, () -> mainScene.setRoot(dirFilterPrevious)));
+	
+	@FXML
+	private void dirFilterAction(ActionEvent e) {
+		dirFilterPrevious = mainScene.getRoot();
+		DirFilterView d = wdirFilter.get();
+		mainScene.setRoot(d);
+		d.start();
+	}
 	private final WeakAndLazy<Grouper> grouper = new WeakAndLazy<>(Grouper::new);
 
 	@FXML
@@ -256,8 +289,15 @@ public class App extends Application implements ChangeListener<SmallBook> {
 			FxPopupShop.showHidePopup("nothing to group", 1500);
 			return;
 		}
-		grouper.get().start(list);
+		grouper.get().show(list);
 	}
+	public Node setLeft(Node node) {
+		return mainRoot.getItems().set(0, node);
+	}
+	public Node getLeft() {
+		return mainRoot.getItems().get(0);
+	}
+
 	private void forEachSmallBookTab(Consumer<SmallBookTab> action) {
 		tabpane.getTabs().forEach(t -> {
 			if(t instanceof SmallBookTab)
@@ -346,7 +386,7 @@ public class App extends Application implements ChangeListener<SmallBook> {
 
 	private Stage resourceChoiceStage() {
 		Stage s = new Stage(StageStyle.UTILITY);
-		s.initOwner(stage);
+		s.initOwner(mainStage);
 		s.initModality(Modality.APPLICATION_MODAL);
 		s.setTitle("resource type");
 
@@ -372,7 +412,7 @@ public class App extends Application implements ChangeListener<SmallBook> {
 			fc.setInitialDirectory(lastFileParent);
 		fc.setTitle("select resource");
 
-		List<File> files = fc.showOpenMultipleDialog(stage);
+		List<File> files = fc.showOpenMultipleDialog(mainStage);
 
 		if(Checker.isEmpty(files))
 			FxPopupShop.showHidePopup("cancelled", 1500);
@@ -411,7 +451,7 @@ public class App extends Application implements ChangeListener<SmallBook> {
 
 	private void newUrlResource() {
 		TextInputDialog dialog = new TextInputDialog();
-		dialog.initOwner(stage);
+		dialog.initOwner(mainStage);
 		dialog.setTitle("add resources");
 		dialog.setHeaderText("Add Resources");
 
@@ -460,7 +500,8 @@ public class App extends Application implements ChangeListener<SmallBook> {
 		FxClipboard.setString(s);
 		FxPopupShop.showHidePopup("copied: "+s, 1500);
 	}
-	void remove(SmallBookTab tab) {
+	@Override
+	public void remove(SmallBookTab tab) {
 		List<SmallBook> books = tab.getSelectionModel().getSelectedItems();
 		if(books.isEmpty())
 			return;
@@ -570,7 +611,8 @@ public class App extends Application implements ChangeListener<SmallBook> {
 		}
 
 	}
-	void changeStatus() {
+	@Override
+	public void changeStatus() {
 		List<SmallBook> books = currentTab.getSelectionModel().getSelectedItems();
 		if(books.isEmpty())
 			return;
@@ -587,11 +629,17 @@ public class App extends Application implements ChangeListener<SmallBook> {
 		booksHelper.changeStatus(books, status);
 		filters.setChoiceFilter(statusChoice.getSelected());
 	}
-	Book book(SmallBook s) {
+	@Override
+	public Book book(SmallBook s) {
 		return booksHelper.book(s);
 	}
 	@Override
 	public void changed(ObservableValue<? extends SmallBook> observable, SmallBook oldValue, SmallBook newValue) {
 		reset(newValue);
 	}
+
+	public static Actions actions() {
+		return actions;
+	}
+
 }
