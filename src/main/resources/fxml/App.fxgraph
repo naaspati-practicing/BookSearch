@@ -79,7 +79,7 @@ dynamic component Main  {
 						RecentsBookTab id recentTab { text : "Recent"},
 						side : "BOTTOM"
 					},
-					bottom : HBox id bottom{
+					bottom : HBox id bottom {
 						spacing : 5,
 						padding : Insets { top : 5, bottom : 5, left : 5, right : 5 },
 						alignment : "CENTER",

@@ -95,7 +95,6 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 	@FXML private Text countText;
 	@FXML private Text loadText;
 	@FXML private VBox vbox;
-	@FXML private HBox buttonsBox;
 	@FXML private Button copyCombined;
 	@FXML private Button copyJson;
 	@FXML private Button openFile;
@@ -180,6 +179,7 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 			currentTab.setSorter(currentComparator);
 			currentTab.filter(filters);
 		});
+		
 	}
 
 	@SuppressWarnings("rawtypes")
@@ -271,7 +271,7 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 	}
 
 	private Parent dirFilterPrevious;
-	private final WeakAndLazy<DirFilterView> wdirFilter = new WeakAndLazy<>(() -> new DirFilterView(filters, booksHelper, () -> mainScene.setRoot(dirFilterPrevious)));
+	private final WeakAndLazy<DirFilterView> wdirFilter = new WeakAndLazy<>(() -> new DirFilterView(filters, booksHelper, () -> {mainScene.setRoot(dirFilterPrevious); dirFilterPrevious = null; }));
 	
 	@FXML
 	private void dirFilterAction(ActionEvent e) {
