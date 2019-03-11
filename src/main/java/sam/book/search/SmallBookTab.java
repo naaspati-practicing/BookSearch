@@ -23,15 +23,12 @@ import javafx.scene.control.SelectionMode;
 import javafx.scene.control.Tab;
 import javafx.scene.input.ContextMenuEvent;
 import javafx.stage.DirectoryChooser;
-import javafx.stage.FileChooser;
-import javafx.stage.FileChooser.ExtensionFilter;
 import sam.book.Book;
 import sam.book.BooksHelper;
 import sam.book.SmallBook;
 import sam.config.MyConfig;
 import sam.fx.alert.FxAlert;
 import sam.fx.popup.FxPopupShop;
-import sam.reference.WeakAndLazy;
 
 public abstract class SmallBookTab extends Tab {
 	protected final ListView<SmallBook> list = new ListView<>();
@@ -63,35 +60,14 @@ public abstract class SmallBookTab extends Tab {
 		if(contextmenu2 == null) {
 			contextmenu2 = new ContextMenu(
 					menuitem("Copy Selected", e1 -> copyselected()),
-					menuitem("Change Status", e1 -> App.actions().changeStatus()),
-					menuitem("Save HTML", e1 -> saveHtml(), list.getSelectionModel().selectedItemProperty().isNull())
+					menuitem("Change Status", e1 -> App.actions().changeStatus())
 					);
 			if(getClass() == RecentsBookTab.class)
 				contextmenu2.getItems().add(menuitem("Remove Selected", e1 -> App.actions().remove(this)));
 		}
 		contextmenu2.show(list, e.getScreenX(), e.getScreenY());
 	}
-	WeakAndLazy<HtmlMaker> htmlMaker = new WeakAndLazy<>(HtmlMaker::new);
-
-	private void saveHtml() {
-		FileChooser fc = new FileChooser();
-		fc.setInitialDirectory(new File(MyConfig.COMMONS_DIR));
-		fc.setInitialFileName("booklist.html");
-		fc.getExtensionFilters().setAll(new ExtensionFilter("html", "*.html"));
-		fc.setTitle("save as");
-		
-		File file = fc.showSaveDialog(App.getStage());
-		if(file == null) {
-			FxPopupShop.showHidePopup("cancelled", 1500);
-			return;
-		}
-		
-		try {
-			htmlMaker.get().create(list.getSelectionModel().getSelectedItems(), file.toPath());
-		} catch (IOException e) {
-			FxAlert.showErrorDialog(file, "Failed to save "+file.getName(), e);
-		}
-	}
+	
 	private void copyselected() {
 		DirectoryChooser dc = new DirectoryChooser();
 		dc.setInitialDirectory(new File(MyConfig.COMMONS_DIR));
@@ -157,5 +133,8 @@ public abstract class SmallBookTab extends Tab {
 		
 		allData.removeAll(books);
 		list.getItems().removeAll(books);
+	}
+	public List<SmallBook> getItems() {
+		return Collections.unmodifiableList(list.getItems());
 	}
 }

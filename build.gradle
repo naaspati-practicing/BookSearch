@@ -8,7 +8,8 @@ repositories {
 dependencies {
   compile 'org.xerial:sqlite-jdbc:3.7.2'
   compile 'org.slf4j:slf4j-simple:1.8.0-beta4'
-  compile files('myutils.jar') 
+  compile files('myutils.jar')
+  compile 'org.json:json:20180813' 
 }
 
 mainClassName = 'Main'

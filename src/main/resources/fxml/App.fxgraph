@@ -50,6 +50,10 @@ dynamic component Main  {
 					top: BorderPane {
 						top: MenuBar {
 							Menu {
+								text : "File",								
+								MenuItem {text : "Save As html", onAction : controllermethod saveAsHtml}
+							},
+							Menu {
 								text : "Resource",								
 								MenuItem {text : "Reload Resources", onAction : controllermethod reloadResoueces}
 							},

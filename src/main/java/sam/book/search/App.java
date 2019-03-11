@@ -14,12 +14,12 @@ import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -54,6 +54,7 @@ import javafx.scene.layout.VBox;
 import javafx.scene.text.Text;
 import javafx.scene.web.WebView;
 import javafx.stage.FileChooser;
+import javafx.stage.FileChooser.ExtensionFilter;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
@@ -65,15 +66,19 @@ import sam.books.BookStatus;
 import sam.books.BooksDB;
 import sam.collection.CollectionUtils;
 import sam.collection.Iterables;
+import sam.config.MyConfig;
 import sam.console.ANSI;
 import sam.fx.alert.FxAlert;
 import sam.fx.clipboard.FxClipboard;
+import sam.fx.helpers.FxButton;
 import sam.fx.helpers.FxCell;
 import sam.fx.helpers.FxChoiceBox;
 import sam.fx.helpers.FxFxml;
 import sam.fx.helpers.FxHBox;
 import sam.fx.popup.FxPopupShop;
 import sam.io.fileutils.FileOpener;
+import sam.io.fileutils.FileOpenerNE;
+import sam.io.serilizers.StringWriter2;
 import sam.myutils.Checker;
 import sam.myutils.MyUtilsPath;
 import sam.nopkg.EnsureSingleton;
@@ -189,7 +194,7 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 		private final ListView<SmallBook> center = new ListView<>();
 		private final Button back = new Button("back");
 
-		private final Map<Comparable, List<SmallBook>> map = new HashMap<>();
+		private final Map<Comparable, List<SmallBook>> map = new TreeMap<>();
 		private final ChangeListener<Object[]> leftListener;
 		private final ChangeListener<Grouping> choiceLister;
 		private List<SmallBook> list;
@@ -198,7 +203,8 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 		public Grouper() {
 			choice = FxChoiceBox.choiceBox(Grouping.values(), Grouping::valueOf, true);
 
-			setBottom(FxHBox.buttonBox(new Text("Group By: "), choice));
+			
+			setBottom(FxHBox.buttonBox(new Text("Group By: "), FxButton.button("As Html", e -> saveAsHtml(e), Bindings.isEmpty(left.getItems())),  choice));
 			setTop(back);
 			back.setOnAction(e -> hide());
 			BorderPane.setMargin(back, new Insets(2, 5, 2, 5));
@@ -240,7 +246,6 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 			if(g == null) {
 				left.getSelectionModel().clearSelection();
 				left.getItems().clear();
-				// title.setText(null);
 			} else {
 				map.forEach((s,t) -> t.clear());
 				list.stream().collect(Collectors.groupingBy(g.mapper, () -> map, Collectors.toList()));
@@ -253,7 +258,6 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 				});
 
 				left.getItems().sort(Comparator.comparing(c -> (Comparable)c[0]));
-				// title.setText("Group by: "+g);
 			}
 		}
 		@Override
@@ -512,6 +516,36 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 		tab.removeAll(books);
 	}
 
+	@FXML
+	private void saveAsHtml(Event e) {
+		FileChooser fc = new FileChooser();
+		fc.setInitialDirectory(new File(MyConfig.COMMONS_DIR));
+		fc.setInitialFileName("booklist.html");
+		fc.getExtensionFilters().setAll(new ExtensionFilter("html", "*.html"));
+		fc.setTitle("save as");
+		
+		File file = fc.showSaveDialog(App.getStage());
+		if(file == null) {
+			FxPopupShop.showHidePopup("cancelled", 1500);
+			return;
+		}
+		
+		Node node = getLeft();
+		StringBuilder sb;
+		if(node.getClass() == Grouper.class) {
+			Grouper g = (Grouper) node;
+			sb = HtmlMaker.toHtml(g.map, booksHelper);
+		} else {
+			sb = HtmlMaker.toHtml(currentTab.getItems(), booksHelper);
+		}
+		try {
+			StringWriter2.setText(file.toPath(), sb);
+			FileOpenerNE.openFileLocationInExplorer(file);
+		} catch (IOException e1) {
+			FxAlert.showErrorDialog(file, "failed to save html", e1);
+		}
+	}
+	
 	@FXML
 	private void reloadResoueces(Event e) {
 		((MenuItem )e.getSource()).setDisable(true);

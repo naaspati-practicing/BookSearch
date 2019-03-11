@@ -8,13 +8,11 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
-import javafx.event.WeakEventHandler;
 import javafx.geometry.Insets;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
@@ -70,7 +68,7 @@ public class DirFilterView extends BorderPane {
 		this.booksHelper = booksHelper;
 		this.filters = filters;
 		
-		setBottom(buttonBox(new Text("Dir Filter"), countT,maxPane(),new Text("search"), search, selectButton = button("Select All", this::selectAction), button("CANCEL", e -> backaction.run()), button("OK", e -> ok(backaction))));
+		setBottom(buttonBox(new Text("Dir Filter"), countT,maxPane(),new Text("search"), search, selectButton = button("Unselect All", this::selectAction), button("CANCEL", e -> backaction.run()), button("OK", e -> ok(backaction))));
 		search.setMaxWidth(Double.MAX_VALUE);
 		HBox.setMargin(search, new Insets(0, 10, 0, 10));
 		

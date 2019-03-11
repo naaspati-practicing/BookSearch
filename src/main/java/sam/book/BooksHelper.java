@@ -427,4 +427,7 @@ public class BooksHelper implements AutoCloseable {
 	public IndexedMap<PathsImpl> getPaths() {
 		return paths;
 	}
+	public PathsImpl getPath(int id) {
+		return paths.get(id);
+	}
 }

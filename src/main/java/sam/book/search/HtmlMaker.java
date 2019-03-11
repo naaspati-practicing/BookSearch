@@ -1,43 +1,85 @@
 package sam.book.search;
 
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Consumer;
 
+import sam.book.BooksHelper;
 import sam.book.SmallBook;
 import sam.books.BooksDB;
+import sam.books.PathsImpl;
 
 public class HtmlMaker {
 
-	public void create(List<SmallBook> books, Path path) throws UnsupportedEncodingException, IOException {
+	public static StringBuilder toHtml(Consumer<StringBuilder> bodyGenerate) {
 		String title = "book list";
-		StringBuilder sb = new StringBuilder("<!DOCTYPE html>\r\n<html>\r\n<head>\r\n    <base href=\"")
-				.append(BooksDB.ROOT)
-				.append("\"> \r\n    <meta charset=\"utf-8\" />\r\n    <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\">\r\n    <title>")
+		StringBuilder sb = new StringBuilder("<!DOCTYPE html>\r\n<html>\r\n<head>\r\n ")
+				.append("<meta charset=\"utf-8\" />\r\n    <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\">\r\n    <title>")
 				.append(title)
-				.append("</title>\r\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\r\n</head>\r\n<style>\r\n    li {\r\n        list-style-type: none;\r\n        padding-bottom: 1em;\r\n        border-width: 0 0 0.1px 0;\r\n        border-color: black;\r\n        border-style: solid;\r\n    }\r\n      p {\r\n          margin: 0.2em;\r\n          font-family: 'Courier New', Courier, monospace;\r\n      }\r\n      p.title {\r\n          font-size: 1.2em;\r\n      }\r\n      p.path {\r\n          font-size: 0.8em;\r\n          text-decoration: underline blue;\r\n          color: blue;\r\n      }\r\n      p.others {\r\n          font-size: 0.7em;\r\n      }\r\n</style>\r\n\r\n<body>\r\n    <section>\r\n        <ul>\r\n");
+				.append("</title>\r\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\r\n</head>\r\n<style>    td, th {         text-align:right;         padding:2px 10px 2px 10px;    }     td:nth-child(2),     th:nth-child(2) { text-align:left; }  </style>\r\n\r\n<body>\r\n    <section>\r\n <p id=\"stats\"></p>\r\n");
 		
-		for (SmallBook book : books) 
-			append(sb, book);
-
-		sb.append("\r\n</ul>\r\n    </section>\r\n    \r\n</body>\r\n</html>");
+		bodyGenerate.accept(sb);
 		
-		Files.write(path, sb.toString().getBytes("utf-8"), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-	}
-	
-	private void append(StringBuilder sb, SmallBook book) {
-		sb.append("<li>\r\n<p class=\"title\">")
-		.append(book.name)
-		.append("</p>\n<p class=\"others\">id: ")
-		.append(book.id)
-		.append(" | pages: ")
-		.append(book.page_count)
-		.append(" | year: ")
-		.append(book.year)
-		.append("</p>\n</li>\n");
+		sb.append("\r\n </section> <textarea id=\"clipboard\"></textarea>\r\n    \r\n")
+		.append("<script> const basedir = '").append(BooksDB.ROOT.toString().replace('\\', '/')).append("/';\n")
+		.append("const clipboard = document.getElementById('clipboard');\n")
+		.append("const stats = document.getElementById('stats');\n")
+		.append("clipboard.style.display = 'none';\n")
+		.append("function copyAction(str) {\n")
+		.append("  str = basedir.concat(str);\n")
+		.append("  clipboard.style.display = 'block';\n")
+		.append("  clipboard.value = str;\n")
+		.append("  clipboard.select();\n")
+		.append("  document.execCommand('copy');\n")
+		.append("  clipboard.style.display = 'none';\n")
+		.append("  stats.innerText = 'copied: '.concat(str);\n")
+		.append("};\n")
+		.append("</script></body>\r\n</html>");
+		return sb;
 	}
 
+	public static StringBuilder toHtml(List<SmallBook> list, BooksHelper booksHelper) {
+		return toHtml(sb -> appendList(sb, list, booksHelper));
+	}
+
+	private static void appendList(StringBuilder sb, List<SmallBook> books, BooksHelper helper) {
+		sb.append("<table><tr>");
+		
+		for (String s : new String[]{
+				"id",
+				"name",
+				"year",
+				"page_count",
+				"path_id",
+				"status"
+				}) {
+			sb.append("<th>").append(s).append("</th>");
+		}
+		
+		sb.append("\n</tr>\n");
+		
+		for (SmallBook b : books){
+			PathsImpl p = helper.getPath(b.path_id);
+			
+			sb.append("<tr><td>").append(b.id).append(".</td>")
+			.append("<td>").append(b.name).append("</td>")
+			.append("<td>").append(b.year).append("</td>")
+			.append("<td>").append(b.page_count).append("</td>")
+			.append("<td>").append(b.path_id).append("</td>")
+			.append("<td>").append(b.getStatus()).append("</td>")
+			.append("<td><button onclick=\"copyAction('").append((p.getPath()+"/"+b.filename).replace('\\', '/')).append("')\">Copy</button></td>")
+			.append("\n</tr>\n")
+			;
+		} 
+		sb.append("\n</table>\n");
+	}
+
+	public static StringBuilder toHtml(Map<?, List<SmallBook>> map, BooksHelper helper) {
+		return toHtml(sb -> {
+			map.forEach((s,t) -> {
+				sb.append("<h1>").append(s).append("</h1>\n");
+				appendList(sb, t, helper);
+			});
+		});
+	}
 }
