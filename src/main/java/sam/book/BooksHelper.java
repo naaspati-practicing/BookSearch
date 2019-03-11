@@ -9,7 +9,8 @@ import static sam.books.BooksMeta.CHANGE_LOG_TABLE_NAME;
 import static sam.books.BooksMeta.DML_TYPE;
 import static sam.books.BooksMeta.ID;
 import static sam.books.BooksMeta.LOG_NUMBER;
-import static sam.books.BooksMeta.*;
+import static sam.books.BooksMeta.PATH_ID;
+import static sam.books.BooksMeta.PATH_TABLE_NAME;
 import static sam.books.BooksMeta.TABLENAME;
 
 import java.io.BufferedInputStream;
@@ -36,8 +37,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.function.ToIntFunction;
-import java.util.logging.Logger;
 import java.util.stream.Collectors;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import sam.books.BookStatus;
 import sam.books.BooksDB;
@@ -51,13 +54,12 @@ import sam.io.fileutils.FilesUtilsIO;
 import sam.io.serilizers.LongSerializer;
 import sam.io.serilizers.ObjectReader;
 import sam.io.serilizers.ObjectWriter;
-import sam.logging.MyLoggerFactory;
 import sam.myutils.Checker;
 import sam.sql.JDBCHelper;
 import sam.sql.SqlFunction;
 
 public class BooksHelper implements AutoCloseable {
-	private static final Logger LOGGER = MyLoggerFactory.logger(BooksHelper.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(BooksHelper.class);
 
 	private final Path book_cache = Paths.get("books_cache.dat");
 	private final Path sql_resources = Paths.get("sql-resources.dat");
@@ -99,13 +101,13 @@ public class BooksHelper implements AutoCloseable {
 		try {
 			Path p = cache_dir.resolve(String.valueOf(n.id));
 			if(Files.exists(p)) {
-				LOGGER.fine(() -> "CACHE LOADED: id="+n.id+", name="+n.name);
+				LOGGER.debug("CACHE LOADED: id={}, name={}", n.id, n.name);
 				return ObjectReader.read(p, dis -> new Book(dis, n));
 			}
 
 			Book book = Book.getById(n, db()); 
 			ObjectWriter.write(p, book, Book::write);
-			LOGGER.fine(() -> "SAVED CACHE id:"+book.book.id+", to:"+p);
+			LOGGER.debug( "SAVED CACHE id:{}, to:{}", book.book.id, p);
 			return book;
 		} catch (SQLException | IOException e) {
 			System.err.println(n);
@@ -321,7 +323,7 @@ public class BooksHelper implements AutoCloseable {
 
 	private void deleteCache(SmallBook sm) {
 		boolean b = cache_dir.resolve(Integer.toString(sm.id)).toFile().delete();
-		LOGGER.fine(() -> "DELETE CACHE: "+sm.id+", deleted: "+b);
+		LOGGER.debug("DELETE CACHE: {}, deleted: {}",sm.id, b);
 	}
 
 	private void loadAll() throws SQLException, IOException {

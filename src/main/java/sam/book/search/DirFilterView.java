@@ -13,8 +13,10 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
 import javafx.event.WeakEventHandler;
 import javafx.geometry.Insets;
+import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
@@ -32,11 +34,11 @@ public class DirFilterView extends BorderPane {
 	private BitSet filter;
 	private final Text countT = new Text();
 	private final String suffix, prefix;
-	private int count;
 	private final BooksHelper booksHelper;
 	private final Filters filters;
+	private final Button selectButton;
 	private final TextField search = new TextField();
-	private final WeakEventHandler<ActionEvent> selectHandler = new WeakEventHandler<>(this::handle);
+	private final EventHandler<ActionEvent> selectHandler = this::handle;
 	private final List<Temp> all;
 	
 	private static class Temp {
@@ -48,7 +50,7 @@ public class DirFilterView extends BorderPane {
 			this.key = key(path.getPath());
 		}
 		private static String key(String s) {
-			int n = s.indexOf('\\');
+			int n = s.lastIndexOf('\\');
 			if(n < 0)
 				return s.toLowerCase();
 			return s.substring(n+1).toLowerCase();
@@ -68,12 +70,12 @@ public class DirFilterView extends BorderPane {
 		this.booksHelper = booksHelper;
 		this.filters = filters;
 		
-		setBottom(buttonBox(new Text("Dir Filter"), countT,maxPane(),new Text("search"), search, button("Select All", e -> {setAllTrue(filter); list.refresh(); resetCount();}), button("CANCEL", e -> backaction.run()), button("OK", e -> ok(backaction))));
+		setBottom(buttonBox(new Text("Dir Filter"), countT,maxPane(),new Text("search"), search, selectButton = button("Select All", this::selectAction), button("CANCEL", e -> backaction.run()), button("OK", e -> ok(backaction))));
 		search.setMaxWidth(Double.MAX_VALUE);
 		HBox.setMargin(search, new Insets(0, 10, 0, 10));
 		
 		this.all = booksHelper.getPaths().stream().map(Temp::new).collect(Collectors.toList());
-		this.all.sort(Comparator.comparing((Temp c) -> c == null ? null : c.path.getPath()));
+		this.all.sort(Comparator.comparing((Temp c) -> c == null ? null : c.getPath()));
 		
 		setCenter(list);
 		list.setCellFactory(c -> new Lc());
@@ -100,6 +102,23 @@ public class DirFilterView extends BorderPane {
 		suffix = "/"+list.size();
 	}
 
+	private void selectAction(ActionEvent e) {
+		if(selectButton.getText().equals("Select All")) {
+			selectButton.setText("Unselect All");
+			list.getItems().forEach(t -> filter.set(t.getPathId()));
+		} else {
+			selectButton.setText("Select All");
+			filter.clear();
+		}
+		
+		list.refresh();
+		resetCount();
+	}
+
+	private void resetCount() {
+		countT.setText(prefix+filter.cardinality()+suffix);
+	}
+
 	public void start() {
 		filter = Optional.ofNullable(filters.getDirFilter())
 				.map(DirFilter::copy)
@@ -118,15 +137,6 @@ public class DirFilterView extends BorderPane {
 	private void ok(Runnable backAction) {
 		filters.setDirFilter(new DirFilter(filter));
 		backAction.run();
-	}
-	
-	private void resetCount() {
-		count = 0;
-		list.getItems().forEach(p -> {
-			if(filter.get(p.getPathId()))
-				count++;
-		});
-		countT.setText(prefix+count+suffix);
 	}
 
 	private class Lc extends ListCell<Temp> {
@@ -167,12 +177,17 @@ public class DirFilterView extends BorderPane {
 		boolean selected = c.isSelected();
 		String prefix = item.path.getPath().concat("\\");
 		filter.set(item.path.getPathId(), selected);
-
-		list.getItems().forEach(p -> {
-			if(p.getPath().startsWith(prefix))
-				filter.set(p.getPathId(), selected);
-		});
-
+		
+		int n = all.indexOf(item.path) + 1;
+		
+		while(n < all.size()) {
+			Temp t = all.get(n++);
+			if(t.getPath().startsWith(prefix))
+				filter.set(t.getPathId(), selected);
+			else
+				break;
+		}
+		
 		resetCount();
 		list.refresh();
 	}
