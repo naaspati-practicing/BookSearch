@@ -1,17 +1,19 @@
 package sam.book.search;
 
+import static java.util.Comparator.*;
 import java.util.Comparator;
 
 import sam.book.SmallBook;
 
 public enum Sorter {
-	ADDED(Comparator.<SmallBook>comparingInt(s -> s.id).reversed()), 
+	ADDED(comparingInt((SmallBook s) -> s.id).reversed()), 
 	YEAR((a,b) -> {
 		if(a.year == b.year)
 			return Integer.compare(b.id, a.id);
 		return Integer.compare(b.year, a.year);
 	}), 
-	TITLE( Comparator.comparing(s -> s.lowercaseName)), 
+	TITLE( comparing(s -> s.lowercaseName)),
+	PAGE_COUNT( comparingInt(s -> s.page_count)),
 	DEFAULT(null);
 	
 	public final Comparator<SmallBook> sorter;
