@@ -26,7 +26,7 @@ public class HtmlMaker {
 		.append("const stats = document.getElementById('stats');\n")
 		.append("clipboard.style.display = 'none';\n")
 		.append("function copyAction(str) {\n")
-		.append("  str = basedir.concat(str);\n")
+		.append("  str = basedir.concat(str).replace(/\\//g, '\\\\');\n")
 		.append("  clipboard.style.display = 'block';\n")
 		.append("  clipboard.value = str;\n")
 		.append("  clipboard.select();\n")
