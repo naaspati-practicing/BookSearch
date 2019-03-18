@@ -180,7 +180,7 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 			filters.setAllData(currentTab.getAllData());
 		});
 
-		filtersMenu.init(booksHelper, filters);
+		filtersMenu.init(booksHelper, filters, this::loadFilter);
 		mainScene.getStylesheets().add("css/style.css");
 
 		Platform.runLater(() -> {

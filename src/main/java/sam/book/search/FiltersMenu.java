@@ -1,12 +1,13 @@
 package sam.book.search;
 
+import static sam.books.BooksMeta.BOOK_TABLE_NAME;
+
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Paths;
 import java.sql.SQLException;
+import java.util.function.Consumer;
 
-import static sam.books.BooksMeta.*;
 import javafx.scene.control.Menu;
 import javafx.stage.FileChooser;
 import javafx.stage.FileChooser.ExtensionFilter;
@@ -20,16 +21,18 @@ import sam.reference.WeakAndLazy;
 public class FiltersMenu extends Menu implements Closeable {
 	private Filters filters;
 	private BooksHelper booksHelper;
+	private Consumer<String> cacheFilterloader;
 
-	public void init(BooksHelper booksHelper, Filters filters) {
+	public void init(BooksHelper booksHelper, Filters filters, Consumer<String> cacheFilterloader) {
 		this.filters = filters;
 		this.booksHelper = booksHelper;
+		this.cacheFilterloader = cacheFilterloader;
 
 		getItems().addAll(
 				sqlFilter(),
 				cacheFilter()
 				);
-		
+
 		setOnShowing(o -> {
 			getItems().forEach(e -> ((ListMenu)e).init());
 			setOnShowing(null);
@@ -44,7 +47,7 @@ public class FiltersMenu extends Menu implements Closeable {
 				else
 					filters.setSQLFilter(MyUtilsException.noError(() -> booksHelper.sqlFilter(text)));
 			}
-			
+
 			private final WeakAndLazy<TextAreaDialog> dialog = new WeakAndLazy<>(() -> new TextAreaDialog("filter", "SQL Filter", null));
 
 			@Override
@@ -54,7 +57,7 @@ public class FiltersMenu extends Menu implements Closeable {
 				String sql = dialog.showAndWait().orElse(null);
 				if(Checker.isEmptyTrimmed(sql))
 					return null;
-				
+
 				try {
 					//check validity
 					booksHelper.sqlFilter(sql);
@@ -71,14 +74,8 @@ public class FiltersMenu extends Menu implements Closeable {
 		return new ListMenu("cached filters", "cached-filters.txt", false) {
 			@Override
 			protected void onAction(String text) {
-				if(text == null)
-					return;
-				
-				try {
-					filters.loadFilters(Paths.get(text));
-				} catch (IOException e) {
-					FxAlert.showErrorDialog(text, "failed to load ", e);
-				}
+				if(text != null)
+					cacheFilterloader.accept(text);
 			}
 			@Override
 			protected String newLebel() {
@@ -97,8 +94,8 @@ public class FiltersMenu extends Menu implements Closeable {
 				File file = fc.showOpenDialog(App.getStage());
 				if(file == null)
 					return null;
-				
-				
+
+
 				fc.setInitialDirectory(file.getParentFile());
 				return file.toString();
 			}
