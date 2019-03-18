@@ -26,9 +26,9 @@
 <?import javafx.scene.web.WebView?>
 <?import javafx.stage.Stage?>
 <?import sam.book.search.ChoiceBox2?>
+<?import sam.book.search.FiltersMenu?>
 <?import sam.book.search.MainTab?>
 <?import sam.book.search.RecentsBookTab?>
-<?import sam.book.search.SqlFilterMenu?>
 <?import sam.fx.helpers.IconButton?>
 
 <fx:root xmlns:fx="http://javafx.com/fxml" type="Stage" title="Book Search" width="800" height="500">
@@ -43,13 +43,12 @@
 								<MenuBar> 
 									<Menu text="File"> 
 										<MenuItem text="Save As html" onAction="#saveAsHtml"/> 
+										<MenuItem text="Save Filter" onAction="#saveFilter"/> 
 									</Menu>
 									<Menu text="Resource"> 
 										<MenuItem text="Reload Resources" onAction="#reloadResoueces"/> 
 									</Menu>
-									<Menu text="DB"> 
-										<SqlFilterMenu fx:id="sqlFilterMenu" text="SQL Filter(s)"/> 
-									</Menu>
+									<FiltersMenu fx:id="filtersMenu" text="filters"/> 
 								</MenuBar>
 							</top>
 							<center>

@@ -1,54 +1,75 @@
 package sam.book.search;
 
-import static sam.myutils.MyUtilsException.noError;
-
-import java.nio.file.Files;
+import java.io.IOException;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
+import java.util.function.ToIntFunction;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javafx.application.Platform;
 import sam.book.SmallBook;
 import sam.books.BookStatus;
-import sam.fx.helpers.FxTextSearch;
+import sam.fx.textsearch.FxTextSearch;
 import sam.myutils.System2;
 
 public class Filters {
-	public static final Path SAVE_DIR = Optional.ofNullable(System2.lookup("saved_search_dir")).map(Paths::get).orElse(Paths.get("."));//.orElseGet(() -> noError(() -> Paths.get(ClassLoader.getSystemResource("saved_search").toURI())));
-
-	static {
-		noError(() -> {
-			Files.createDirectories(SAVE_DIR);
-			return null;
-		});
-	}
-	private final FxTextSearch<SmallBook> search = new FxTextSearch<>(s -> s.lowercaseName, Optional.ofNullable(System2.lookup("SEARCH_DELAY")).map(Integer::parseInt).orElse(500), true);
+	private static final Logger LOGGER = LoggerFactory.getLogger(Filters.class);
 
 	private Predicate<SmallBook> tr = FxTextSearch.trueAll();
 	private static int _index = 0;
-	private static final int CHOICE = _index++, DIR_FILTER = _index++, SQL = _index++, SET = _index++; 
-	@SuppressWarnings("rawtypes")
-	private Predicate[] preFilters = new Predicate[_index];  
+	private static final int CHOICE = _index++; 
+	private static final int DIR_FILTER = _index++;
+	private static final int SQL = _index++;
+	private static final int SET = _index++;
+	
+	private static final int SIZE = _index;
 
+	@SuppressWarnings("rawtypes")
+	private Predicate[] preFilters = new Predicate[SIZE];
+
+	private Status2 choice; 
+	private DirFilter dir_filter;
+	private BitSet sql;
+	private Set<String> set;
+	private String string;
+
+	private final FxTextSearch<SmallBook> search = new FxTextSearch<>(s -> s.lowercaseName, Optional.ofNullable(System2.lookup("SEARCH_DELAY")).map(Integer::parseInt).orElse(500), true);
+
+	public Filters() {
+		search.disable();
+	}
 	public void setChoiceFilter(Status2 status) {
+		this.choice = status;
+		setPreFilter(CHOICE, choiceFilter(status));
+	}
+	private Predicate<SmallBook> choiceFilter(Status2 status) {
 		if(status == null || status.status == null)
-			preFilters[CHOICE] = null;
-		 else {
+			return null;
+		else {
 			BookStatus sts =  status.status;
-			preFilters[CHOICE] = predicate(s -> s.getStatus() == sts);
+			return predicate(s -> s.getStatus() == sts);
 		}
-		search.set(preFilter());
 	}
 	public void setDirFilter(DirFilter dirFilter) {
-		preFilters[DIR_FILTER] = dirFilter; 
-		search.set(preFilter(), null);
+		this.dir_filter = dirFilter;
+		setPreFilter(DIR_FILTER, bitsetFilter(dirFilter == null ? null : dirFilter.actual(), s -> s.path_id));
+	}
+	private Predicate<SmallBook> bitsetFilter(BitSet set, ToIntFunction<SmallBook> func) {
+		if(set == null)
+			return null;
+		
+		return s -> s != null && set.get(func.applyAsInt(s));
 	}
 	public DirFilter getDirFilter() {
-		return (DirFilter) preFilters[DIR_FILTER];
+		return dir_filter;
 	}
 	private Predicate<SmallBook> predicate(Predicate<SmallBook> s) {
 		return s;
@@ -63,23 +84,37 @@ public class Filters {
 		return p;
 	}
 
+	private void setPreFilter(int type, Predicate<SmallBook> filter) {
+		preFilters[type] = filter;
+		search.set(preFilter(), null);
+	}
 	public void setStringFilter(String str) {
-		if(preFilters[SET] != null) {
+		this.string = str;
+
+		if(set != null || preFilters[SET] != null) {
 			preFilters[SET] = null;
+			set = null;
 			search.set(preFilter(), str);	
 		} else
 			search.set(str);
 	}
 	public void setStringFilter(Set<String> set) {
-		preFilters[SET] = predicate(s -> set.contains(s.filename));
-		search.set(preFilter(), null);
+		this.set = set;
+		setPreFilter(SET, predicate(s -> s != null && set.contains(s.filename)));
 	}
-	public void setSQLFilter(Predicate<SmallBook> predicate) {
-		preFilters[SQL] = predicate;
-		search.set(preFilter());
+	public void setSQLFilter(BitSet filter) {
+		this.sql = filter;
+		setPreFilter(SQL, bitsetFilter(filter, s -> s.id));
 	}
 	public void setFalse() {
+		this.choice = null;
+		this.dir_filter = null;
+		this.sql = null;
+		this.set = null;
+		this.string = null;
+		
 		Arrays.fill(preFilters, null);
+		
 		search.set(FxTextSearch.falseAll(), null);
 	}
 	public Predicate<SmallBook> getFilter() {
@@ -96,5 +131,51 @@ public class Filters {
 	}
 	public boolean applyFilter(SmallBook s) {
 		return search.getFilter().test(s);
+	}
+	public void enable() {
+		search.enable();
+		if(string != null || Arrays.stream(preFilters).anyMatch(p -> p != null))
+			search.set(preFilter(), string);
+	}
+	
+	public void loadFilters(Path p) throws IOException {
+		FilterSerializer f = new FilterSerializer();
+		f.read(p);
+		
+		this.choice = f.choice;
+		this.dir_filter = f.dir_filter == null ? null : new DirFilter(f.dir_filter);
+		this.sql = f.sql;
+		this.set = f.set;
+		this.string = f.string;
+		
+		search.disable();
+		
+		preFilters[CHOICE] = choiceFilter(choice);
+		preFilters[DIR_FILTER] = bitsetFilter(dir_filter == null ? null : dir_filter.actual(), s -> s.path_id);
+		preFilters[SQL] = bitsetFilter(sql, s -> s.id);
+		Set<String> set2 = set;
+		preFilters[SET] = set == null ? null : predicate(s -> s != null && set2.contains(s.filename));
+
+		LOGGER.debug("filters loaded from: {}\n{}", p, f);
+		Platform.runLater(() -> Platform.runLater(() -> enable()));
+	}
+	
+	public void save(Path p) throws IOException {
+		FilterSerializer f = new FilterSerializer();
+		
+		f.choice = this.choice;
+		f.dir_filter = this.dir_filter == null ? null : this.dir_filter.actual();
+		f.sql = this.sql;
+		f.set = this.set;
+		f.string = this.string;
+		
+		LOGGER.debug("filters saved : {}\n{}", p, f);
+		f.write(p);
+	}
+	public String getSearchString() {
+		return string;
+	}
+	public Status2 choice() {
+		return choice;
 	}
 }

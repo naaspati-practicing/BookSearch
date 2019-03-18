@@ -10,6 +10,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collections;
@@ -88,9 +89,12 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 	private static final EnsureSingleton singleton = new EnsureSingleton();
 	{ singleton.init(); }
 
+	public static String startSearchFile;
+
 	// bookId  -> book
 	private BooksHelper booksHelper;
 
+	@FXML FiltersMenu filtersMenu;
 	@FXML Scene mainScene;
 	@FXML private Text searchLabel;
 	@FXML private TextField searchField;
@@ -119,8 +123,6 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 	@FXML private SplitPane mainRoot;
 	@FXML private VBox resourceBox;
 
-	@FXML private SqlFilterMenu sqlFilterMenu ;
-
 	private Comparator<SmallBook> currentComparator = Sorter.DEFAULT.sorter;
 
 	private final Filters filters = new Filters();
@@ -128,6 +130,7 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 	private SmallBookTab currentTab;
 	private static Stage mainStage;
 	private static Actions actions;
+	private boolean manualTextSet, manualChoiceSet;
 
 	public static Window getStage() {
 		return mainStage;
@@ -150,8 +153,12 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 		prepareChoiceBoxes();
 
 		searchField.textProperty().addListener((p, o, n) -> {
-			currentTab.getSelectionModel().clearSelection();
-			search0(n);
+			if(manualTextSet)
+				manualTextSet = false;
+			else {
+				currentTab.getSelectionModel().clearSelection();
+				search0(n);
+			}
 		});
 		stage.show();
 
@@ -173,18 +180,40 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 			filters.setAllData(currentTab.getAllData());
 		});
 
-		sqlFilterMenu.init(booksHelper, filters);
+		filtersMenu.init(booksHelper, filters);
 		mainScene.getStylesheets().add("css/style.css");
 
 		Platform.runLater(() -> {
 			currentTab = (SmallBookTab) tabpane.getSelectionModel().getSelectedItem();
 			filters.setAllData(currentTab.getAllData());
 			filters.setOnChange(() -> currentTab.filter(filters));
-			filters.setStringFilter((String)null);
 			currentTab.setSorter(currentComparator);
 			currentTab.filter(filters);
+
+			if(startSearchFile != null)
+				Platform.runLater(() -> loadFilter(startSearchFile));
+
+			filters.enable();
 		});
-		
+	}
+
+	private void loadFilter(String file) {
+		try {
+			Path p = Paths.get(file);
+
+			if(Files.notExists(p))
+				FxAlert.showErrorDialog(file, "File not found", null);
+			else  {
+				manualTextSet = true;
+				manualChoiceSet = true;
+				
+				filters.loadFilters(p);
+				searchField.setText(filters.getSearchString());
+				statusChoice.select(filters.choice());
+			}
+		} catch (Exception e) {
+			FxAlert.showErrorDialog(file, "failed to load filter", e);
+		}
 	}
 
 	@SuppressWarnings("rawtypes")
@@ -203,7 +232,6 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 		public Grouper() {
 			choice = FxChoiceBox.choiceBox(Grouping.values(), Grouping::valueOf, true);
 
-			
 			setBottom(FxHBox.buttonBox(new Text("Group By: "), FxButton.button("As Html", e -> saveAsHtml(e), Bindings.isEmpty(left.getItems())),  choice));
 			setTop(back);
 			back.setOnAction(e -> hide());
@@ -276,7 +304,7 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 
 	private Parent dirFilterPrevious;
 	private final WeakAndLazy<DirFilterView> wdirFilter = new WeakAndLazy<>(() -> new DirFilterView(filters, booksHelper, () -> {mainScene.setRoot(dirFilterPrevious); dirFilterPrevious = null; }));
-	
+
 	@FXML
 	private void dirFilterAction(ActionEvent e) {
 		dirFilterPrevious = mainScene.getRoot();
@@ -311,7 +339,12 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 	private void prepareChoiceBoxes() throws IOException {
 		statusChoice.init(Status2.values());
 		statusChoice.selectedProperty()
-		.addListener((p, o, n) -> filters.setChoiceFilter(n));
+		.addListener((p, o, n) -> {
+			if(manualChoiceSet)
+				manualChoiceSet = false;
+			else
+				filters.setChoiceFilter(n);
+		});
 
 		sortChoice.init(Sorter.values());
 		sortChoice.selectedProperty().addListener((p, o, n) -> {
@@ -374,6 +407,9 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 	@Override
 	public void stop() throws Exception {
 		super.stop();
+
+		filtersMenu.close();
+
 		if(booksHelper != null)
 			booksHelper.close();
 
@@ -516,6 +552,29 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 		tab.removeAll(books);
 	}
 
+	private File saveFilter_parent;
+	@FXML
+	private void saveFilter(Event e) {
+		FileChooser fc = new FileChooser();
+		fc.getExtensionFilters().add(new ExtensionFilter("cached search", "*.booksearch"));
+		fc.setTitle("Choose booksearch to save");
+		if(saveFilter_parent != null)
+			fc.setInitialDirectory(saveFilter_parent);
+
+		File file = fc.showSaveDialog(getStage());
+
+		if(file == null)
+			FxPopupShop.showHidePopup("cancelled", 1500);
+		else {
+			saveFilter_parent = file.getParentFile();
+			try {
+				filters.save(file.toPath());
+			} catch (IOException e1) {
+				FxAlert.showErrorDialog(file, "failed to save filter", e);
+			}
+		}
+	}
+
 	@FXML
 	private void saveAsHtml(Event e) {
 		FileChooser fc = new FileChooser();
@@ -523,13 +582,13 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 		fc.setInitialFileName("booklist.html");
 		fc.getExtensionFilters().setAll(new ExtensionFilter("html", "*.html"));
 		fc.setTitle("save as");
-		
+
 		File file = fc.showSaveDialog(App.getStage());
 		if(file == null) {
 			FxPopupShop.showHidePopup("cancelled", 1500);
 			return;
 		}
-		
+
 		Node node = getLeft();
 		StringBuilder sb;
 		if(node.getClass() == Grouper.class) {
@@ -545,7 +604,7 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 			FxAlert.showErrorDialog(file, "failed to save html", e1);
 		}
 	}
-	
+
 	@FXML
 	private void reloadResoueces(Event e) {
 		((MenuItem )e.getSource()).setDisable(true);

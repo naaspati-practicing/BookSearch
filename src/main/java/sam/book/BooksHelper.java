@@ -30,12 +30,12 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Predicate;
 import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
 
@@ -48,7 +48,6 @@ import sam.books.PathsImpl;
 import sam.collection.IndexedMap;
 import sam.collection.IntSet;
 import sam.fx.alert.FxAlert;
-import sam.fx.helpers.FxTextSearch;
 import sam.fx.popup.FxPopupShop;
 import sam.io.fileutils.FilesUtilsIO;
 import sam.io.serilizers.LongSerializer;
@@ -76,7 +75,7 @@ public class BooksHelper implements AutoCloseable {
 	private final IndexedMap<PathsImpl> paths;
 
 	private final HashMap<Integer, Book> _loadedData  = new HashMap<>();
-	private final HashMap<String, int[]> sqlFilters = new HashMap<>();
+	private final HashMap<String, BitSet> sqlFilters = new HashMap<>();
 	private boolean modified = false;
 
 	public BooksHelper() throws ClassNotFoundException, SQLException, URISyntaxException, IOException {
@@ -376,22 +375,17 @@ public class BooksHelper implements AutoCloseable {
 		});
 	}
 	private static final String SQL_FILTER = "SELECT "+BOOK_ID+" FROM "+BOOK_TABLE_NAME+" WHERE "; 
-	public Predicate<SmallBook> sqlFilter(String sql) throws SQLException {
-		int[] array = sqlFilters.get(sql);
-		if(array == null) {
-			array = new int[books.size()];
-			int n[] = {0};
-			int[] ar = array;
-			db().iterate(SQL_FILTER.concat(sql), rs -> ar[n[0]++] = rs.getInt(1));
-			array = n[0] == 0 ? new int[0] : Arrays.copyOf(array, n[0]);
-			Arrays.sort(array);
-			sqlFilters.put(sql, array);
+	public BitSet sqlFilter(String sql) throws SQLException {
+		BitSet set = sqlFilters.get(sql);
+		
+		if(set == null) {
+			BitSet set2 = new BitSet(books.size());
+			db().iterate(SQL_FILTER.concat(sql), rs -> set2.set(rs.getInt(1)));
+			sqlFilters.put(sql, set2);
+			set = set2;
 		}
-		if(array.length == 0)
-			return FxTextSearch.falseAll();
-
-		int[] ar = array;
-		return s -> Arrays.binarySearch(ar, s.id) >= 0;
+		
+		return (BitSet) set.clone();
 	}
 	
 	public List<String> getResources(Book b) throws SQLException {

@@ -1,15 +1,31 @@
-apply plugin: 'java'
-apply plugin: 'application'
+plugins {
+    id 'jacoco'
+    id 'java'
+    id 'application'
+}
 
 repositories {
     jcenter()
 }
 
+ext.JUNIT_VERSION = '5.3.2'
+ext.TRUTH_VERSION = '0.42'
+
+
 dependencies {
   compile 'org.xerial:sqlite-jdbc:3.7.2'
   compile 'org.slf4j:slf4j-simple:1.8.0-beta4'
   compile files('myutils.jar')
-  compile 'org.json:json:20180813' 
+  compile 'org.json:json:20180813'
+  
+  testImplementation 'com.thedeanda:lorem:2.1'
+  testImplementation 'org.junit.jupiter:junit-jupiter-api:'+JUNIT_VERSION
+  
+  // testImplementation 'org.junit.jupiter:junit-jupiter-params:'+JUNIT_VERSION
+   testRuntime 'org.junit.jupiter:junit-jupiter-engine:'+JUNIT_VERSION
+   
+  // testImplementation 'com.google.truth:truth:'+TRUTH_VERSION
+  //  testImplementation 'com.google.truth.extensions:truth-java8-extension:'+TRUTH_VERSION   
 }
 
 mainClassName = 'Main'
@@ -77,5 +93,21 @@ run {
   workingDir appdir.parent
 }
 
-
 defaultTasks 'install'
+
+test {
+  useJUnitPlatform()
+  systemProperty 'java.util.logging.config.file','test-logging.properties'
+}
+
+jacocoTestReport {
+    reports {
+        xml.enabled false
+        csv.enabled false
+        html.destination file("${buildDir}/jacoco.html")
+    }
+}
+
+
+
+

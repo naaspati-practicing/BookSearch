@@ -79,5 +79,4 @@ public class ChoiceBox2<E> extends VBox implements EventHandler<javafx.event.Act
 		Path p = Paths.get(getSelected().getClass().getName());
 		new IntSerializer().write(((Enum)getSelected()).ordinal(), p);
 	}
-	
 }

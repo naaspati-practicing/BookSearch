@@ -1,4 +1,3 @@
-
 package fxml
 
 import sam.book.search.RecentsBookTab
@@ -37,6 +36,7 @@ import javafx.scene.control.Tooltip
 import sam.book.search.MainTab
 import sam.book.search.RecentsBookTab
 import sam.fx.helpers.IconButton
+import sam.book.search.FiltersMenu
 
 dynamic component Main  {
 	
@@ -51,17 +51,14 @@ dynamic component Main  {
 						top: MenuBar {
 							Menu {
 								text : "File",								
-								MenuItem {text : "Save As html", onAction : controllermethod saveAsHtml}
+								MenuItem {text : "Save As html", onAction : controllermethod saveAsHtml},
+								MenuItem {text : "Save Filter", onAction : controllermethod saveFilter}
 							},
 							Menu {
 								text : "Resource",								
 								MenuItem {text : "Reload Resources", onAction : controllermethod reloadResoueces}
 							},
-							Menu {
-								text : "DB",
-								// MenuItem {text : "Reload DB", onAction : controllermethod reloadSmallBooks},
-								SqlFilterMenu id sqlFilterMenu {text : "SQL Filter(s)"}
-							}
+							FiltersMenu id filtersMenu {text : "filters"}
 						},
 						center : HBox {
 							spacing : 10,
