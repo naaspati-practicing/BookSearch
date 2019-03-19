@@ -64,9 +64,9 @@ public class RecentsBookTab extends SmallBookTab implements Closeable {
 	}
 
 	@Override
-	public void setSorter(Comparator<SmallBook> sorter) {
-		this.sorter = sorter;
-		super.setSorter(sorter);
+	public void setSorter(Comparator<SmallBook> c) {
+		this.sorter = c;
+		super.setSorter(c);
 	}
 	public boolean isEmpty() {
 		return allData.isEmpty();

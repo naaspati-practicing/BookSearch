@@ -110,15 +110,9 @@ public abstract class SmallBookTab extends Tab {
 	public void filter(Filters f) {
 		f.applyFilter(list.getItems());
 	}
-	public void setSorter(Comparator<SmallBook> sorter) {
-		if(sorter == null) {
-			Comparator<SmallBook> c = Comparator.<SmallBook>comparingInt(s -> s.id).reversed();
-			allData.sort(c);
-			list.getItems().sort(c);
-		} else {
-			allData.sort(sorter);
-			list.getItems().sort(sorter);	
-		}
+	public void setSorter(Comparator<SmallBook> c) {
+		allData.sort(c);
+		list.getItems().sort(c);
 	}
 	
 	public IntegerBinding sizeProperty() {

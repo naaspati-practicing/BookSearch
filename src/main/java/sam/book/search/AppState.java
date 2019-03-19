@@ -31,7 +31,11 @@ import org.json.JSONObject;
 import sam.myutils.Checker;
 import sam.string.StringUtils;
 
-class FilterSerializer {
+class AppState {
+	
+	Grouping grouping;
+	Sorter sorter;
+	boolean sorter_revered;
 	Status2 choice; 
 	BitSet dir_filter;
 	BitSet sql;
@@ -45,6 +49,9 @@ class FilterSerializer {
 				BufferedReader reader = new BufferedReader(isr)) {
 
 			Decoder d = Base64.getDecoder();
+			grouping = parse(reader.readLine(), Grouping::valueOf);
+			sorter = parse(reader.readLine(), Sorter::valueOf);
+			sorter_revered = parse(reader.readLine(), Boolean::valueOf);
 			choice = parse(reader.readLine(), Status2::valueOf); 
 			dir_filter = Optional.ofNullable(parse(reader.readLine(), this::biset)).orElse(null);
 			sql = Optional.ofNullable(parse(reader.readLine(), this::biset)).orElse(null);
@@ -83,7 +90,10 @@ class FilterSerializer {
 
 			Encoder e = Base64.getEncoder();
 
-			write(choice, w, s -> s.toString());
+			write(grouping, w);
+			write(sorter, w);
+			write(sorter_revered, w);
+			write(choice, w);
 			write(dir_filter, w, s -> e.encodeToString(s.toByteArray()));
 			write(sql, w, s -> e.encodeToString(s.toByteArray()));
 			write(set, w, s -> encode(String.join("\t", s), e));
@@ -91,6 +101,9 @@ class FilterSerializer {
 		}
 	}
 
+	private void write(Object o, BufferedWriter w) throws IOException {
+		write(o, w, e -> e.toString());
+	}
 	private String encode(String s, Encoder e) {
 		return e.encodeToString(s.getBytes());
 	}
@@ -103,8 +116,11 @@ class FilterSerializer {
 	@Override
 	public String toString() {
 		JSONObject o = new JSONObject();
-		o.put("choice", String.valueOf(choice));
-		o.put("dir_filter", String.valueOf(dir_filter));
+		o.put("grouping", grouping);
+		o.put("sorter", sorter);
+		o.put("sorter_revered", sorter_revered);
+		o.put("choice", choice);
+		o.put("dir_filter", dir_filter);
 		o.put("sql", sql);
 		o.put("set", new JSONArray(set));
 		o.put("string", string);

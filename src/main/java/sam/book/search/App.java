@@ -24,6 +24,9 @@ import java.util.TreeMap;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
@@ -88,6 +91,7 @@ import sam.reference.WeakAndLazy;
 public class App extends Application implements ChangeListener<SmallBook>, Actions {
 	private static final EnsureSingleton singleton = new EnsureSingleton();
 	{ singleton.init(); }
+	private static final Logger logger = LoggerFactory.getLogger(Filters.class);
 
 	public static String startSearchFile;
 
@@ -123,14 +127,21 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 	@FXML private SplitPane mainRoot;
 	@FXML private VBox resourceBox;
 
-	private Comparator<SmallBook> currentComparator = Sorter.DEFAULT.sorter;
+	private Sorter currentSorter = Sorter.DEFAULT;
+	private boolean currentSorter_reversed = false;
 
 	private final Filters filters = new Filters();
 	private Book currentBook;
 	private SmallBookTab currentTab;
 	private static Stage mainStage;
 	private static Actions actions;
-	private boolean manualTextSet, manualChoiceSet;
+
+	private static int _n = 0;
+	private static final int MANUAL_TEXT_SET = _n++;
+	private static final int MANUAL_CHOICE_SET  = _n++;
+	private static final int MANUAL_SORT_SET  = _n++;
+	private final boolean[] manualSet = new boolean[_n];
+	private Runnable runafterFilter;
 
 	public static Window getStage() {
 		return mainStage;
@@ -153,8 +164,8 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 		prepareChoiceBoxes();
 
 		searchField.textProperty().addListener((p, o, n) -> {
-			if(manualTextSet)
-				manualTextSet = false;
+			if(manualSet[MANUAL_TEXT_SET])
+				manualSet[MANUAL_TEXT_SET] = false;
 			else {
 				currentTab.getSelectionModel().clearSelection();
 				search0(n);
@@ -167,7 +178,7 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 		recentTab.init(booksHelper::getSmallBook);
 
 		forEachSmallBookTab(t -> {
-			t.setSorter(currentComparator);
+			t.setSorter(sorter(currentSorter));
 			t.setBooksHelper(booksHelper);
 		});
 
@@ -186,8 +197,16 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 		Platform.runLater(() -> {
 			currentTab = (SmallBookTab) tabpane.getSelectionModel().getSelectedItem();
 			filters.setAllData(currentTab.getAllData());
-			filters.setOnChange(() -> currentTab.filter(filters));
-			currentTab.setSorter(currentComparator);
+			filters.setOnChange(() -> {
+				currentTab.filter(filters);
+				
+				if(runafterFilter != null) {
+					Runnable r = runafterFilter;
+					runafterFilter = null;
+					Platform.runLater(r);
+				}
+			});
+			currentTab.setSorter(sorter(currentSorter));
 			currentTab.filter(filters);
 
 			if(startSearchFile != null)
@@ -197,6 +216,10 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 		});
 	}
 
+	private Comparator<SmallBook> sorter(Sorter s) {
+		return s == null ? null : s.sorter;
+	}
+
 	private void loadFilter(String file) {
 		try {
 			Path p = Paths.get(file);
@@ -204,12 +227,21 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 			if(Files.notExists(p))
 				FxAlert.showErrorDialog(file, "File not found", null);
 			else  {
-				manualTextSet = true;
-				manualChoiceSet = true;
-				
-				filters.loadFilters(p);
+				Arrays.fill(manualSet, true);
+				AppState f = new AppState();
+				f.read(p);
+
+				this.currentGrouping = f.grouping;
+				this.currentSorter = f.sorter;
+				this.currentSorter_reversed = f.sorter_revered;
+
+				filters.loadFilters(f);
 				searchField.setText(filters.getSearchString());
 				statusChoice.select(filters.choice());
+				sortChoice.select(this.currentSorter);
+				
+				if(this.currentGrouping != null)
+					runafterFilter = () -> groupByAction(null);
 			}
 		} catch (Exception e) {
 			FxAlert.showErrorDialog(file, "failed to load filter", e);
@@ -232,7 +264,13 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 		public Grouper() {
 			choice = FxChoiceBox.choiceBox(Grouping.values(), Grouping::valueOf, true);
 
-			setBottom(FxHBox.buttonBox(new Text("Group By: "), FxButton.button("As Html", e -> saveAsHtml(e), Bindings.isEmpty(left.getItems())),  choice));
+			setBottom(FxHBox.buttonBox(
+					new Text("Group By: "), 
+					FxButton.button("As Html", e -> saveAsHtml(e), Bindings.isEmpty(left.getItems())),
+					FxButton.button("As .booksearch", e -> saveFilter(e), Bindings.isEmpty(left.getItems())),
+					choice
+					) );
+			
 			setTop(back);
 			back.setOnAction(e -> hide());
 			BorderPane.setMargin(back, new Insets(2, 5, 2, 5));
@@ -247,16 +285,20 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 			left.setCellFactory(FxCell.listCell(s -> (String)s[1]));
 
 		}
-		public void show(List<SmallBook> list) {
+		public void show(List<SmallBook> list, Grouping current) {
 			this.list = list;
 			this.previous = App.this.setLeft(this);
 
 			set();
 			reset();
+			
+			if(current != null)
+				Platform.runLater(() -> choice.getSelectionModel().select(current));
 		}
 		void hide() {
 			unset();
 			App.this.setLeft(previous);
+			currentGrouping = null;
 		}
 		private void set() {
 			center.getSelectionModel().selectedItemProperty().addListener(this);
@@ -271,6 +313,8 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 		@SuppressWarnings("unchecked")
 		private void reset() {
 			Grouping g = choice.getSelectionModel().getSelectedItem();
+			currentGrouping = g;
+			
 			if(g == null) {
 				left.getSelectionModel().clearSelection();
 				left.getItems().clear();
@@ -321,7 +365,8 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 			FxPopupShop.showHidePopup("nothing to group", 1500);
 			return;
 		}
-		grouper.get().show(list);
+		grouper.get().show(list, this.currentGrouping);
+		this.currentGrouping = null;
 	}
 	public Node setLeft(Node node) {
 		return mainRoot.getItems().set(0, node);
@@ -340,22 +385,25 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 		statusChoice.init(Status2.values());
 		statusChoice.selectedProperty()
 		.addListener((p, o, n) -> {
-			if(manualChoiceSet)
-				manualChoiceSet = false;
+			if(manualSet[MANUAL_CHOICE_SET])
+				manualSet[MANUAL_CHOICE_SET] = false;
 			else
 				filters.setChoiceFilter(n);
 		});
 
 		sortChoice.init(Sorter.values());
 		sortChoice.selectedProperty().addListener((p, o, n) -> {
-			if(o == n)
-				currentComparator = currentComparator.reversed();
-			else
-				currentComparator = n.sorter;
+			currentSorter = n;
 
-			forEachSmallBookTab(t -> t.setSorter(currentComparator));
+			if(manualSet[MANUAL_SORT_SET])
+				manualSet[MANUAL_SORT_SET] = false;
+			else 
+				currentSorter_reversed = o == n ? !currentSorter_reversed : false;
+
+			Comparator<SmallBook> c = currentSorter_reversed ? n.sorter.reversed() : n.sorter;
+			forEachSmallBookTab(t -> t.setSorter(c));
 		});
-		currentComparator = sortChoice.getSelected().sorter;
+		currentSorter = sortChoice.getSelected();
 		filters.setChoiceFilter(statusChoice.getSelected());
 	}
 	@FXML
@@ -553,6 +601,7 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 	}
 
 	private File saveFilter_parent;
+	private Grouping currentGrouping;
 	@FXML
 	private void saveFilter(Event e) {
 		FileChooser fc = new FileChooser();
@@ -568,7 +617,17 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 		else {
 			saveFilter_parent = file.getParentFile();
 			try {
-				filters.save(file.toPath());
+				AppState f = new AppState();
+
+				f.grouping = currentGrouping;
+				f.sorter = currentSorter;
+				f.sorter_revered = currentSorter_reversed;
+
+				filters.save(f);
+
+				Path p = file.toPath();
+				logger.debug("filters saved : {}\n{}", p, f);
+				f.write(p);
 			} catch (IOException e1) {
 				FxAlert.showErrorDialog(file, "failed to save filter", e);
 			}

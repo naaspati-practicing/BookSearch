@@ -1,10 +1,10 @@
 package sam.book.search;
 
 import java.io.IOException;
-import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -35,6 +35,7 @@ public class Filters {
 	@SuppressWarnings("rawtypes")
 	private Predicate[] preFilters = new Predicate[SIZE];
 
+	private Comparator<SmallBook> currentComparator = Sorter.DEFAULT.sorter;
 	private Status2 choice; 
 	private DirFilter dir_filter;
 	private BitSet sql;
@@ -138,9 +139,7 @@ public class Filters {
 			search.set(preFilter(), string);
 	}
 	
-	public void loadFilters(Path p) throws IOException {
-		FilterSerializer f = new FilterSerializer();
-		f.read(p);
+	public void loadFilters(AppState f) {
 		
 		this.choice = f.choice;
 		this.dir_filter = f.dir_filter == null ? null : new DirFilter(f.dir_filter);
@@ -156,21 +155,15 @@ public class Filters {
 		Set<String> set2 = set;
 		preFilters[SET] = set == null ? null : predicate(s -> s != null && set2.contains(s.filename));
 
-		LOGGER.debug("filters loaded from: {}\n{}", p, f);
-		Platform.runLater(() -> Platform.runLater(() -> enable()));
+		Platform.runLater(() -> enable());
 	}
 	
-	public void save(Path p) throws IOException {
-		FilterSerializer f = new FilterSerializer();
-		
+	public void save(AppState f) throws IOException {
 		f.choice = this.choice;
 		f.dir_filter = this.dir_filter == null ? null : this.dir_filter.actual();
 		f.sql = this.sql;
 		f.set = this.set;
 		f.string = this.string;
-		
-		LOGGER.debug("filters saved : {}\n{}", p, f);
-		f.write(p);
 	}
 	public String getSearchString() {
 		return string;

@@ -39,7 +39,7 @@ class FilterSerializerTest {
 	final Status2[] choices = Status2.values();
 
 	void test0() throws IOException {
-		FilterSerializer f = new FilterSerializer();
+		AppState f = new AppState();
 
 		int n = r.nextInt(choices.length + 1);
 		f.choice = n == choices.length ? null : choices[n];
@@ -53,7 +53,7 @@ class FilterSerializerTest {
 		f.write(p);
 		System.out.println(f);
 
-		FilterSerializer fr = new FilterSerializer();
+		AppState fr = new AppState();
 		fr.read(p);
 
 		check(f.choice, fr.choice);
