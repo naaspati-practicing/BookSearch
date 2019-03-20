@@ -9,6 +9,9 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.function.IntFunction;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import sam.book.Book;
 import sam.book.SmallBook;
 import sam.collection.IntList;
@@ -16,6 +19,8 @@ import sam.collection.IntSet;
 import sam.io.serilizers.IntSerializer;
 
 public class RecentsBookTab extends SmallBookTab implements Closeable {
+	private static final Logger logger = LoggerFactory.getLogger(RecentsBookTab.class);
+
 	private IntList exists;
 	private boolean modified;
 	private Comparator<SmallBook> sorter;
@@ -34,7 +39,7 @@ public class RecentsBookTab extends SmallBookTab implements Closeable {
 				already.add(id);
 				SmallBook s = bookGetter.apply(id);
 				if(s == null) {
-					System.out.println("no book found for: "+id);
+					logger.error("no book found for: {}", id);
 					modified = true;
 				} else
 					allData.add(s);
@@ -97,7 +102,7 @@ public class RecentsBookTab extends SmallBookTab implements Closeable {
 			Files.deleteIfExists(cache_path);
 		else {
 			new IntSerializer().write(exists.toArray(), cache_path);
-			System.out.println("saved: "+cache_path);
+			logger.debug("saved: {}", cache_path);
 		}
 	}
 }

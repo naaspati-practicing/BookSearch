@@ -50,7 +50,7 @@ import sam.myutils.Checker;
 import sam.reference.WeakAndLazy;
 
 abstract class ListMenu extends Menu implements Closeable {
-	private static final Logger LOGGER = LoggerFactory.getLogger(ListMenu.class);
+	private static final Logger logger = LoggerFactory.getLogger(ListMenu.class);
 	
 	private List<String> data;
 	private List<String> new_data;
@@ -86,11 +86,11 @@ abstract class ListMenu extends Menu implements Closeable {
 					Files.lines(path)
 					.filter(Checker::isNotEmptyTrimmed)
 					.map(mapper)
-					.peek(s -> System.out.println(s))
+					.peek(s -> logger.debug(s))
 					.collect(Collectors.collectingAndThen(Collectors.toList(), s -> s.isEmpty() ? Collections.emptyList() : s));
-				LOGGER.debug("loaded: {}", path);
+				logger.debug("loaded: {}", path);
 			} catch (IOException e) {
-				LOGGER.error("failed to load: {}", path, e);
+				logger.error("failed to load: {}", path, e);
 				setDisable(true);
 				data = Collections.emptyList();
 				return;
@@ -224,9 +224,9 @@ abstract class ListMenu extends Menu implements Closeable {
 				w.write(mapper.apply(s));
 				w.append('\n');
 			}
-			LOGGER.debug("saved: {}", path);
+			logger.debug("saved: {}", path);
 		} catch (Exception e) {
-			LOGGER.error("failed to save: {}", path, e);
+			logger.error("failed to save: {}", path, e);
 		}
 	}
 

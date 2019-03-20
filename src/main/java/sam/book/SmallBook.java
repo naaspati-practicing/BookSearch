@@ -7,23 +7,32 @@ import static sam.books.BooksMeta.PATH_ID;
 import static sam.books.BooksMeta.STATUS;
 import static sam.books.BooksMeta.YEAR;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import sam.books.BookStatus;
 
 public class SmallBook {
-    public final int id, page_count, year, path_id;
+	public final int id, page_count, year, path_id;
     public final String name, filename, lowercaseName;
     private BookStatus status;
     
     public static String[] columns() {
     	return new String[]{BOOK_ID, NAME,FILE_NAME, PATH_ID, PAGE_COUNT, YEAR,STATUS};
     }
-    SmallBook(ResultSet rs) throws SQLException {
+    
+    public SmallBook(int id, int page_count, int year, int path_id, String name, String filename, BookStatus status) {
+		this.id = id;
+		this.page_count = page_count;
+		this.year = year;
+		this.path_id = path_id;
+		this.name = name;
+		this.filename = filename;
+		this.status = status;
+		this.lowercaseName = name.toLowerCase();
+	}
+
+	SmallBook(ResultSet rs) throws SQLException {
         this.id = rs.getInt(BOOK_ID);
         this.name = rs.getString(NAME);
         this.filename = rs.getString(FILE_NAME);
@@ -34,31 +43,33 @@ public class SmallBook {
         this.lowercaseName = name.toLowerCase();
     }
     
-    static int readInt(ResultSet rs, String col) throws SQLException {
+	public SmallBook(TempSMB t, String name, String filename) {
+		this.id = t.id;
+		this.page_count = t.page_count;
+		this.year = t.year;
+		this.path_id = t.path_id;
+		this.status = t.status;
+		
+		this.name = name;
+		this.filename = filename;
+		this.lowercaseName = name.toLowerCase();
+		
+	}
+	static int readInt(ResultSet rs, String col) throws SQLException {
         try {
             return rs.getInt(col);
         } catch (NumberFormatException|NullPointerException e) {}
         return -1;
     }
-    SmallBook(DataInputStream dis) throws IOException {
-    	this.path_id = dis.readInt();
-        this.id = dis.readInt();
-        this.page_count = dis.readInt();
-        this.year = dis.readInt();
-        this.name = dis.readUTF();
-        this.filename = dis.readUTF();
-        this.lowercaseName = name.toLowerCase();
-        this.status = BookStatus.valueOf(dis.readUTF());
-    }
-    void write(DataOutputStream dos) throws IOException {
-    	dos.writeInt(this.path_id);
-        dos.writeInt(this.id);
-        dos.writeInt(this.page_count);
-        dos.writeInt(this.year);
-        dos.writeUTF(this.name);
-        dos.writeUTF(this.filename);
-        dos.writeUTF(this.status.toString());
-    }
+    public String name() {
+		return name;
+	}
+    public String filename() {
+		return filename;
+	}
+    public String lowercaseName() {
+		return lowercaseName;
+	}
     
     public BookStatus getStatus() {
 		return status;

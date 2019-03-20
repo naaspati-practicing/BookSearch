@@ -199,7 +199,7 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 			filters.setAllData(currentTab.getAllData());
 			filters.setOnChange(() -> {
 				currentTab.filter(filters);
-				
+
 				if(runafterFilter != null) {
 					Runnable r = runafterFilter;
 					runafterFilter = null;
@@ -239,7 +239,7 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 				searchField.setText(filters.getSearchString());
 				statusChoice.select(filters.choice());
 				sortChoice.select(this.currentSorter);
-				
+
 				if(this.currentGrouping != null)
 					runafterFilter = () -> groupByAction(null);
 			}
@@ -270,7 +270,7 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 					FxButton.button("As .booksearch", e -> saveFilter(e), Bindings.isEmpty(left.getItems())),
 					choice
 					) );
-			
+
 			setTop(back);
 			back.setOnAction(e -> hide());
 			BorderPane.setMargin(back, new Insets(2, 5, 2, 5));
@@ -291,7 +291,7 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 
 			set();
 			reset();
-			
+
 			if(current != null)
 				Platform.runLater(() -> choice.getSelectionModel().select(current));
 		}
@@ -314,7 +314,7 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 		private void reset() {
 			Grouping g = choice.getSelectionModel().getSelectedItem();
 			currentGrouping = g;
-			
+
 			if(g == null) {
 				left.getSelectionModel().clearSelection();
 				left.getItems().clear();
@@ -514,7 +514,7 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 					.map(f -> f.toPath().toAbsolutePath().normalize())
 					.filter(f -> {
 						if(paths.contains(f)) {
-							System.out.println("already added: "+f);
+							logger.warn("already added: {}", f);
 							return false;
 						}
 						return true;
@@ -523,14 +523,14 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 					.collect(Collectors.toList());
 
 			if(result.isEmpty()) {
-				System.out.println(ANSI.yellow("already addded"));
+				logger.warn(ANSI.yellow("already addded"));
 				return ;
 			}
 
 			try {
 				booksHelper.addResource(currentBook, result);
 				addResourceLinks(result);
-				result.forEach(s -> System.out.println("added resource: "+s));
+				result.forEach(s -> logger.info("added resource: {}", s));
 			} catch (SQLException e2) {
 				FxAlert.showErrorDialog(paths.stream().map(Path::toString).collect(Collectors.joining("\n")), "failed to add resource", e2);
 			}
@@ -548,7 +548,7 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 				FxPopupShop.showHidePopup("bad input", 1500);
 			else {
 				if(!s.startsWith("http")) {
-					System.out.println("missing protocol in url: "+s);
+					logger.warn("missing protocol in url: {}", s);
 					FxPopupShop.showHidePopup("bad value", 1500);
 					return;
 				}
@@ -715,7 +715,8 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 			addResourceLinks(list2);
 		}
 
-		System.out.println("change view: "+dirname(b));
+		if(logger.isDebugEnabled())
+			logger.debug("change view: {} ", dirname(b));
 	}
 	private Node hl(Object c, Node node) {
 		Hyperlink h = node != null ? (Hyperlink)node : new Hyperlink();

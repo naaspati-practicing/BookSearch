@@ -1,6 +1,8 @@
 package sam.book.search;
 
-import static java.util.Comparator.*;
+import static java.util.Comparator.comparing;
+import static java.util.Comparator.comparingInt;
+
 import java.util.Comparator;
 
 import sam.book.SmallBook;
