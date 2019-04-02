@@ -1,0 +1,100 @@
+package fxml
+
+import sam.book.search.RecentsBookTab
+import javafx.scene.layout.BorderPane
+import javafx.scene.layout.HBox
+import javafx.geometry.Insets
+import javafx.scene.text.Text
+import javafx.scene.control.TextField
+import java.lang.Double
+import javafx.scene.control.ListView
+import javafx.scene.layout.VBox
+import javafx.scene.control.Label
+import javafx.scene.web.WebView
+import javafx.scene.control.Hyperlink
+import javafx.stage.Stage
+import javafx.scene.Scene
+import javafx.scene.control.Button
+import javafx.scene.layout.Pane
+import javafx.scene.control.TabPane
+import javafx.scene.control.Tab
+import sam.book.search.SmallBookTab
+import javafx.scene.control.ChoiceBox
+import javafx.scene.control.SplitPane
+import javafx.scene.control.SplitPane.Divider
+import javafx.scene.layout.GridPane
+import javafx.scene.control.MenuBar
+import javafx.scene.control.Menu
+import javafx.scene.control.MenuItem
+import javafx.scene.layout.ColumnConstraints
+import sam.book.search.SqlFilterMenu
+import sam.book.search.ChoiceBox2
+import sam.book.search.Status2
+import sam.book.search.Sorter
+import sam.book.search.DirFilter
+import javafx.scene.control.Tooltip
+import sam.book.search.MainTab
+import sam.book.search.RecentsBookTab
+import sam.fx.helpers.IconButton
+import sam.book.search.FiltersMenu
+
+
+dynamic component FullView {
+	VBox id vbox {
+		padding : Insets { bottom : 5, left : 10, right : 5, top : 5 },
+		children : [
+			GridPane id infogrid {
+				columnConstraints : [
+					ColumnConstraints,
+					ColumnConstraints,
+					ColumnConstraints,
+					ColumnConstraints,
+					ColumnConstraints {
+						fillWidth : true,
+						hgrow : "ALWAYS"
+					}
+				],
+				onMouseClicked : controllermethod infoGridClickAction,
+				Text {text : "ID : ",          static columnIndex : 0, static rowIndex : 0, static columnSpan : 1, styleClass : ["tagText"], static halignment : "RIGHT"},
+				Text id idText {               static columnIndex : 1, static rowIndex : 0, static columnSpan : 1},
+				
+				Text {text : "ISBN : ",        static columnIndex : 3, static rowIndex : 0, static columnSpan : 1, styleClass : ["tagText"], static halignment : "RIGHT"},
+				Text id isbnText {             static columnIndex : 4, static rowIndex : 0, static columnSpan : 2},
+				VBox {
+					alignment : "TOP_RIGHT",
+					spacing : 5,               static columnIndex : 6, static rowIndex : 0, static columnSpan : const GridPane#REMAINING, static halignment : "RIGHT", static rowSpan : 4,
+				    Button id copyCombined { text : "copy combined", onAction : controllermethod copyCombinedAction },
+				    Button id copyJson {text : "copy Json", onAction : controllermethod copyJsonAction },
+				    Button id openFile {text : "Open File", onAction : controllermethod openFileAction }
+				},
+				
+				Text {text : "PageCount : ",   static columnIndex : 0, static rowIndex : 1, static columnSpan : 1, styleClass : ["tagText"], static halignment : "RIGHT"},
+				Text id page_countText {       static columnIndex : 1, static rowIndex : 1, static columnSpan : 1},
+				
+				Text {text : "Year : ",        static columnIndex : 3, static rowIndex : 1, static columnSpan : 1, styleClass : ["tagText"], static halignment : "RIGHT"},
+				Text id yearText  {            static columnIndex : 4, static rowIndex : 1, static columnSpan : 2},
+				
+				Text {text : "Status : ",      static columnIndex : 0, static rowIndex : 2, static columnSpan : 1, styleClass : ["tagText"], static halignment : "RIGHT"},
+				Text id statusText {           static columnIndex : 1, static rowIndex : 2, static columnSpan : 1},
+				
+				Text {text : "PathId : ",      static columnIndex : 3, static rowIndex : 2, static columnSpan : 1, styleClass : ["tagText"], static halignment : "RIGHT"},
+				Text id path_idText{           static columnIndex : 4, static rowIndex : 2, static columnSpan : 2},
+				
+				Text {text : "Name : ",        static columnIndex : 0, static rowIndex : 3, static columnSpan : 1, styleClass : ["tagText"], static halignment : "RIGHT"},
+				Text id nameText {             static columnIndex : 1, static rowIndex : 3, static columnSpan : const GridPane#REMAINING},
+				
+				Text {text : "Author : ",      static columnIndex : 0, static rowIndex : 4, static columnSpan : 1, styleClass : ["tagText"], static halignment : "RIGHT"},
+				Text id authorText {           static columnIndex : 1, static rowIndex : 4, static columnSpan : const GridPane#REMAINING},
+				
+				Text {text : "FileName : ",    static columnIndex : 0, static rowIndex : 6, static columnSpan : 1, styleClass : ["tagText"], static halignment : "RIGHT"},
+				Text id file_nameText {        static columnIndex : 1, static rowIndex : 6, static columnSpan : const GridPane#REMAINING},
+				Text  {text : "Path : ",       static columnIndex : 0, static rowIndex : 7, static columnSpan : 1, static rowSpan : 1, styleClass : ["tagText"]}, 
+				Hyperlink id pathText {        static columnIndex : 0, static rowIndex : 8, static columnSpan : const GridPane#REMAINING, static rowSpan : 1, onAction : controllermethod openPathAction, static fillWidth : true, padding : Insets{left : 10}}
+			},
+			HBox {spacing : 10, Text {text : "Resources", styleClass : ["tagText"]}, Label {style : "-fx-text-fill:blue;-fx-underline:true;",  text : "Add", onMouseClicked : controllermethod addResourceAction}},
+			VBox id resourceBox{padding : Insets{left : 15}},
+			Text {text : "Description", styleClass : ["tagText"]},
+			WebView id descriptionText
+		]
+    }
+}
