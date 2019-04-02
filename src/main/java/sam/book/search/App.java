@@ -102,7 +102,7 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 
 	private FullView fullView;
 	private final Filters filters = new Filters();
-	private Book currentBook;
+	private SmallBook currentBook;
 	private SmallBookTab currentTab;
 	private static Stage mainStage;
 	private static Actions actions;
@@ -193,6 +193,10 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 		
 		fullView = new FullView() {
 			@Override
+			protected BooksHelper booksHelper() {
+				return booksHelper;
+			}
+			@Override
 			protected Window stage() {
 				return mainStage;
 			}
@@ -215,6 +219,7 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 		mainStage.setHeight(500);
 		Platform.runLater(() -> mainRoot.setDividerPositions(0.4, 0.6));
 		Platform.runLater(() -> mainStage.centerOnScreen());
+		Platform.runLater(() -> fullView.reset(currentBook));
 	}
 
 	private Comparator<SmallBook> sorter(Sorter s) {
@@ -420,7 +425,7 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 			try {
 				if(open) {
 					getHostServices().showDocument(p.toUri().toString());
-					recentTab.add(currentBook);
+					recentTab.add(fullView.currentBook);
 				} else
 					FileOpener.openFileLocationInExplorer(p.toFile());
 			} catch (IOException e1) {
@@ -599,6 +604,8 @@ public class App extends Application implements ChangeListener<SmallBook>, Actio
 	}
 	@Override
 	public void changed(ObservableValue<? extends SmallBook> observable, SmallBook oldValue, SmallBook newValue) {
+		this.currentBook = newValue;
+		
 		if(fullView != null)
 			fullView.reset(newValue);
 	}

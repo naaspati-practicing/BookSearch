@@ -54,7 +54,6 @@ import sam.reference.WeakAndLazy;
 public abstract class FullView extends VBox {
 	private static final Logger logger = LoggerFactory.getLogger(FullView.class);
 	
-	@FXML private VBox vbox;
 	@FXML private Button copyCombined;
 	@FXML private Button copyJson;
 	@FXML private Button openFile;
@@ -71,8 +70,7 @@ public abstract class FullView extends VBox {
 	@FXML private WebView descriptionText;
 	@FXML private VBox resourceBox;
 	
-	private Book currentBook;
-	private BooksHelper booksHelper;
+	Book currentBook;
 	
 	public FullView() {
 		System.out.println("FullView loaded");
@@ -90,12 +88,12 @@ public abstract class FullView extends VBox {
 	}
 	
 	void reset(SmallBook n) {
-		vbox.setVisible(n != null);
+		setVisible(n != null);
 		if(n == null) return;
 
-		currentBook = booksHelper.book(n);
+		currentBook = booksHelper().book(n);
 		Book b = currentBook;
-		Path fullPath = booksHelper.getFullPath(b.book);
+		Path fullPath = booksHelper().getFullPath(b.book);
 		openFile.setUserData(fullPath);
 
 		idText.setText(string(b.book.id));
@@ -118,7 +116,7 @@ public abstract class FullView extends VBox {
 		List<Path> list = getResources(b);
 		List<String> list2;
 		try {
-			list2 = booksHelper.getResources(b);
+			list2 = booksHelper().getResources(b);
 		} catch (SQLException e) {
 			e.printStackTrace();
 			list2 = Collections.emptyList();
@@ -139,6 +137,7 @@ public abstract class FullView extends VBox {
 			logger.debug("change view: {} ", dirname(b));
 	}
 	
+	protected abstract BooksHelper booksHelper();
 	protected abstract String dirname(Book b);
 	protected abstract Node hl(Object c, Node node) ;
 	protected abstract Window stage();
@@ -208,7 +207,7 @@ public abstract class FullView extends VBox {
 			}
 
 			try {
-				booksHelper.addResource(currentBook, result);
+				booksHelper().addResource(currentBook, result);
 				addResourceLinks(result);
 				result.forEach(s -> logger.info("added resource: {}", s));
 			} catch (SQLException e2) {
@@ -241,7 +240,7 @@ public abstract class FullView extends VBox {
 
 				if(resourceBox.getChildren().isEmpty() || resourceBox.getChildren().stream().map(Node::getUserData).noneMatch(n -> s.equalsIgnoreCase(n.toString()))) {
 					try {
-						booksHelper.addResource(currentBook, Collections.singletonList(s));
+						booksHelper().addResource(currentBook, Collections.singletonList(s));
 					} catch (SQLException e) {
 						FxAlert.showErrorDialog(s, "failed to add to DB", e);
 						return;
