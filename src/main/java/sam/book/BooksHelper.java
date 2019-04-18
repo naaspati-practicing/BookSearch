@@ -46,8 +46,9 @@ public class BooksHelper implements AutoCloseable {
 	private static final boolean DEBUG = logger.isDebugEnabled();
 	
 	private final Path book_cache = Paths.get("books_cache.dat");
-	private Map<Integer, List<String>> resources;
-	private boolean resources_modified;
+	private final Path resource_cache = Paths.get("resource_cache.dat");
+	private Map<Integer, List<String>> _resources;
+	private boolean resources_mod;
 	private boolean db_modified;
 	private int last_log_number;
 	private long lastmodifiedtime = -1;
@@ -68,9 +69,6 @@ public class BooksHelper implements AutoCloseable {
 		this.books = new IndexedMap<>(_books, s -> s.id);
 		this.paths = new IndexedMap<>(_paths, PathsImpl::getPathId);
 		Files.createDirectories(cache_dir);
-
-		if(resources == null)
-			resources = new HashMap<>();
 	}
 	public IndexedMap<SmallBook> getBooks() {
 		return books;
@@ -281,7 +279,6 @@ public class BooksHelper implements AutoCloseable {
 			if(serializer.load(book_cache)) {
 				this._books = serializer.books;
 				this._paths = serializer.paths;
-				this.resources = serializer.resources;
 				this.last_log_number = serializer.last_log_number;
 				this.lastmodifiedtime = serializer.lastmodifiedtime;
 				update();
@@ -303,19 +300,21 @@ public class BooksHelper implements AutoCloseable {
 		if(_db != null)
 			_db.close();
 
-		if(modified || resources_modified) {
+		if(modified) {
 			BookSerializer serializer = new BookSerializer();
 			serializer.books = _books;
 			serializer.paths = _paths;
 			serializer.last_log_number = last_log_number;
 			serializer.lastmodifiedtime = BooksDB.DB_PATH.toFile().lastModified();
-			serializer.resources = resources;
 			
 			serializer.save(book_cache);
 			logger.debug("cache saved: {}", book_cache);
 		} else if(db_modified) {
 			BookSerializer.updateLastModified(book_cache, BooksDB.DB_PATH.toFile().lastModified());
 		}
+		
+		if(_resources != null && resources_mod) 
+		    ResourceSerializer.write(resource_cache, _resources);
 	}
 	public void changeStatus(List<SmallBook> books, BookStatus status) {
 		try {
@@ -354,7 +353,7 @@ public class BooksHelper implements AutoCloseable {
 		if(b == null)
 			return Collections.emptyList();
 
-		List<String> list = resources.get(b.book.id);
+		List<String> list = resources().get(b.book.id);
 		if(list != null)
 			return list;
 
@@ -362,12 +361,23 @@ public class BooksHelper implements AutoCloseable {
 		logger.debug("loaded sq-resource({}): book_id: {}", list.size(), b.book.id);
 		list = list.isEmpty() ? Collections.emptyList() : list;
 
-		resources.put(b.book.id, list);
-		resources_modified = true;
+		_resources.put(b.book.id, list);
+		resources_mod = true;
 
 		return list;
 	}
-	public void addResource(Book currentBook, List<String> result) throws SQLException {
+	private Map<Integer, List<String>> resources() {
+	    if(_resources == null) {
+	        try {
+                _resources = ResourceSerializer.read(resource_cache);
+            } catch (IOException e) {
+                e.printStackTrace();
+                _resources = new HashMap<>();
+            }
+	    }
+        return _resources;
+    }
+    public void addResource(Book currentBook, List<String> result) throws SQLException {
 		try(PreparedStatement ps = db().prepareStatement("INSERT INTO Resources VALUES(?,?)")) {
 			for (String s : result) {
 				ps.setInt(1, currentBook.book.id);

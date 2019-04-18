@@ -7,10 +7,13 @@ import static sam.books.BooksMeta.PATH_ID;
 import static sam.books.BooksMeta.STATUS;
 import static sam.books.BooksMeta.YEAR;
 
+import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import sam.books.BookStatus;
+import sam.io.serilizers.DataReader;
+import sam.io.serilizers.DataWriter;
 
 public class SmallBook {
 	public final int id, page_count, year, path_id;
@@ -43,19 +46,35 @@ public class SmallBook {
         this.lowercaseName = name.toLowerCase();
     }
     
-	public SmallBook(TempSMB t, String name, String filename) {
-		this.id = t.id;
-		this.page_count = t.page_count;
-		this.year = t.year;
-		this.path_id = t.path_id;
-		this.status = t.status;
+	public SmallBook(DataReader reader) throws IOException {
+		this.id = reader.readInt();
+		this.page_count = reader.readInt();
+		this.year = reader.readInt();
+		this.path_id = reader.readInt();
+		this.status = status(reader.readInt());
 		
-		this.name = name;
-		this.filename = filename;
+		this.name = reader.readUTF();
+		this.filename = reader.readUTF();
 		this.lowercaseName = name.toLowerCase();
-		
 	}
-	static int readInt(ResultSet rs, String col) throws SQLException {
+	public void write(DataWriter w) throws IOException {
+	     w.writeInt(this.id);
+         w.writeInt(this.page_count);
+         w.writeInt(this.year);
+         w.writeInt(this.path_id);
+         w.writeInt(this.status == null ? -1 : this.status.ordinal());
+        
+         w.writeUTF(this.name);
+         w.writeUTF(this.filename);
+	}
+	
+	private static final BookStatus[] statuses = BookStatus.values();
+	
+	private BookStatus status(int n) {
+        return n < 0 ? null : statuses[n];
+    }
+
+    static int readInt(ResultSet rs, String col) throws SQLException {
         try {
             return rs.getInt(col);
         } catch (NumberFormatException|NullPointerException e) {}

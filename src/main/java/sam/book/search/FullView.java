@@ -1,7 +1,6 @@
 package sam.book.search;
 
 import static sam.book.search.ResourceHelper.RESOURCE_DIR;
-import static sam.book.search.ResourceHelper.getResources;
 
 import java.io.File;
 import java.io.IOException;
@@ -137,7 +136,8 @@ public abstract class FullView extends VBox {
 			logger.debug("change view: {} ", dirname(b));
 	}
 	
-	protected abstract BooksHelper booksHelper();
+	protected abstract List<Path> getResources(Book b);
+    protected abstract BooksHelper booksHelper();
 	protected abstract String dirname(Book b);
 	protected abstract Node hl(Object c, Node node) ;
 	protected abstract Window stage();

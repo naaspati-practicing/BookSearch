@@ -50,15 +50,9 @@ class BookSerializerTest {
 		expected.paths = paths;
 		expected.last_log_number = r.nextInt();
 		expected.lastmodifiedtime = r.nextLong();
-		expected.resources = new HashMap<>();
 
 		Path p = Files.createTempFile(null, null);
 		try {
-			test(expected, p);
-			
-			for (int i = 0; i < 10; i++) 
-				expected.resources.put(r.nextInt(), Stream.generate(() -> lorem.getWords(2,4)).limit(r.nextInt(20)).collect(Collectors.toList()));
-			
 			test(expected, p);
 			
 			expected.lastmodifiedtime = r.nextLong();
@@ -115,9 +109,5 @@ class BookSerializerTest {
 		assertNotSame(expected, bs2);
 		assertEquals(expected.last_log_number, bs2.last_log_number);
 		assertEquals(expected.lastmodifiedtime, bs2.lastmodifiedtime);
-		assertEquals(expected.resources.size(), bs2.resources.size());
-		assertNotSame(expected.resources, bs2.resources);
-		assertEquals(expected.resources, bs2.resources);
-		
 	}
 }

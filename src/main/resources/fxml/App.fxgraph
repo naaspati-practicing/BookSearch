@@ -50,7 +50,9 @@ dynamic component Main  {
 							Menu {
 								text : "File",								
 								MenuItem {text : "Save As html", onAction : controllermethod saveAsHtml},
-								MenuItem {text : "Save Filter", onAction : controllermethod saveFilter}
+								MenuItem {text : "Save Filter", onAction : controllermethod saveFilter},
+								MenuItem { text: "copy combined", onAction : controllermethod copyCombinedAction },
+								MenuItem { text: "open file", onAction : controllermethod openFileAction }
 							},
 							Menu {
 								text : "Resource",								
